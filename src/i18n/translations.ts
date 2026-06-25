@@ -43,6 +43,7 @@ export type TranslationKey =
   | "session.result"
   | "result.title"
   | "result.downloadPoster"
+  | "result.downloadFailed"
   | "result.copyMarkdown"
   | "result.exportJson"
   | "result.newRound"
@@ -81,9 +82,14 @@ export type TranslationKey =
   | "connections.headersInvalid"
   | "connections.presets"
   | "connections.openaiPreset"
+  | "connections.openaiResponsesPreset"
   | "connections.deepseekPreset"
+  | "connections.anthropicPreset"
+  | "connections.geminiPreset"
+  | "connections.ollamaPreset"
   | "connections.openrouterPreset"
   | "connections.relayPreset"
+  | "connections.customJsonPreset"
   | "connections.corsHint"
   | "connections.storeKey"
   | "connections.mockReady"
@@ -156,6 +162,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "session.result": "View result",
     "result.title": "Decision output",
     "result.downloadPoster": "Download poster",
+    "result.downloadFailed": "Download failed. Please try again.",
     "result.copyMarkdown": "Copy markdown",
     "result.exportJson": "Export JSON",
     "result.newRound": "Start another round",
@@ -178,7 +185,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "result.exported": "Export file created.",
     "connections.title": "Model connections",
     "connections.subtitle":
-      "Start with the mock provider. Add one OpenAI-compatible connection when you are ready to use your own key or relay token.",
+      "Start with the mock provider or one key. Add more protocols only when sharper model disagreement is worth it.",
     "connections.add": "Add connection",
     "connections.test": "Test connection",
     "connections.fetchModels": "Fetch models",
@@ -191,15 +198,20 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.model": "Model ID",
     "connections.headers": "Custom headers",
     "connections.headersHelp": "Optional JSON object. Secrets are only saved when device storage is enabled.",
-    "connections.unsupported": "Post-v1",
+    "connections.unsupported": "Available",
     "connections.headersInvalid": "Custom headers must be a valid JSON object.",
     "connections.presets": "Quick presets",
     "connections.openaiPreset": "OpenAI official",
+    "connections.openaiResponsesPreset": "OpenAI Responses",
     "connections.deepseekPreset": "DeepSeek official",
+    "connections.anthropicPreset": "Anthropic",
+    "connections.geminiPreset": "Gemini",
+    "connections.ollamaPreset": "Ollama local",
     "connections.openrouterPreset": "OpenRouter / relay",
     "connections.relayPreset": "Custom relay",
+    "connections.customJsonPreset": "Custom JSON",
     "connections.corsHint":
-      "If the browser blocks CORS, use your own Worker, Function, local proxy, or relay endpoint.",
+      "If the browser blocks CORS, use your own Worker, Function, local proxy, or relay endpoint. Local Ollama may need OLLAMA_ORIGINS.",
     "connections.storeKey": "Save key on this device",
     "connections.mockReady": "Mock provider is ready and does not need a key.",
     "connections.modelsLoaded": "Models loaded.",
@@ -270,6 +282,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "session.result": "查看结果",
     "result.title": "决策输出",
     "result.downloadPoster": "下载海报",
+    "result.downloadFailed": "下载失败，请再试一次。",
     "result.copyMarkdown": "复制 Markdown",
     "result.exportJson": "导出 JSON",
     "result.newRound": "再开一局",
@@ -292,7 +305,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "result.exported": "导出文件已生成。",
     "connections.title": "模型连接",
     "connections.subtitle":
-      "先用 Mock Provider 零门槛体验。准备好后，再添加一个 OpenAI-compatible 连接，使用自己的 Key 或中转站 Token。",
+      "先用 Mock Provider 或一个 Key 起步。等需要更尖锐的模型分歧时，再逐步添加更多协议。",
     "connections.add": "添加连接",
     "connections.test": "测试连接",
     "connections.fetchModels": "获取模型",
@@ -305,15 +318,20 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.model": "模型 ID",
     "connections.headers": "自定义 Headers",
     "connections.headersHelp": "可选 JSON 对象。只有开启本设备保存时，密钥类字段才会持久保存。",
-    "connections.unsupported": "后续支持",
+    "connections.unsupported": "已支持",
     "connections.headersInvalid": "自定义 Headers 必须是合法 JSON 对象。",
     "connections.presets": "快速预设",
     "connections.openaiPreset": "OpenAI 官方",
+    "connections.openaiResponsesPreset": "OpenAI Responses",
     "connections.deepseekPreset": "DeepSeek 官方",
+    "connections.anthropicPreset": "Anthropic",
+    "connections.geminiPreset": "Gemini",
+    "connections.ollamaPreset": "Ollama 本地",
     "connections.openrouterPreset": "OpenRouter / 中转",
     "connections.relayPreset": "自定义中转",
+    "connections.customJsonPreset": "自定义 JSON",
     "connections.corsHint":
-      "如果浏览器被 CORS 拦截，请使用自己的 Worker、Function、本地代理或中转端点。",
+      "如果浏览器被 CORS 拦截，请使用自己的 Worker、Function、本地代理或中转端点。本地 Ollama 可能需要配置 OLLAMA_ORIGINS。",
     "connections.storeKey": "在本设备保存 Key",
     "connections.mockReady": "Mock Provider 已可用，不需要 Key。",
     "connections.modelsLoaded": "模型列表已获取。",

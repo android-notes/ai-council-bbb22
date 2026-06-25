@@ -98,12 +98,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrate: async () => {
     const [settings, sessions] = await Promise.all([loadSettings(), loadSessions()]);
     const language = settings?.language ?? detectLanguage();
+    const latestResult =
+      window.location.hash.replace("#", "") === "result"
+        ? sessions.find((session) => Boolean(session.result))
+        : undefined;
     persistLanguage(language);
     set({
       language,
       sessions,
       connections: mergeMockConnection(settings?.connections ?? []),
       fallbackPolicy: settings?.fallbackPolicy ?? "balanced",
+      ...(latestResult
+        ? {
+            currentSession: latestResult,
+            mode: latestResult.mode,
+            topic: latestResult.topic,
+            context: latestResult.context,
+            depth: latestResult.depth,
+            roles: latestResult.roles,
+          }
+        : {}),
     });
   },
 

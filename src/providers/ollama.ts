@@ -1,26 +1,33 @@
+import type { ModelConnection } from "../types";
 import type {
   ConnectionTestResult,
   ModelListResult,
   ModelRequest,
   ModelResponse,
 } from "./types";
-import type { ModelConnection } from "../types";
+import {
+  askOpenAiCompatible,
+  fetchOpenAiCompatibleModels,
+  testOpenAiCompatibleConnection,
+} from "./openAiCompatible";
 import {
   buildBearerHeaders,
   buildSystemPrompt,
   buildUserPrompt,
   extractErrorMessage,
   extractModelIds,
+  extractTextFromUnknown,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
-export async function askOpenAiCompatible(
-  request: ModelRequest
-): Promise<ModelResponse> {
-  const endpoint = buildChatCompletionsEndpoint(request.connection.baseUrl);
-  const response = await fetch(endpoint, {
+export async function askOllama(request: ModelRequest): Promise<ModelResponse> {
+  if (looksOpenAiCompatible(request.connection.baseUrl)) {
+    return askOpenAiCompatible(request);
+  }
+
+  const response = await fetch(buildOllamaChatEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify({
@@ -35,9 +42,11 @@ export async function askOpenAiCompatible(
           content: buildUserPrompt(request),
         },
       ],
-      temperature: request.mode === "arena" ? 0.85 : 0.45,
-      max_tokens: request.maxOutputTokens,
       stream: false,
+      options: {
+        temperature: request.mode === "arena" ? 0.85 : 0.45,
+        num_predict: request.maxOutputTokens,
+      },
     }),
   });
 
@@ -46,22 +55,23 @@ export async function askOpenAiCompatible(
     throw new Error(extractErrorMessage(json, response.status));
   }
 
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Protocol mismatch: missing choices[0].message.content.");
+  const content = extractTextFromUnknown(json);
+  if (!content.trim()) {
+    throw new Error("Protocol mismatch: response did not contain Ollama message content.");
   }
 
   return { content, raw: json };
 }
 
-export async function testOpenAiCompatibleConnection(
-  connection: ModelConnection
-): Promise<ConnectionTestResult> {
+export async function testOllamaConnection(connection: ModelConnection): Promise<ConnectionTestResult> {
+  if (looksOpenAiCompatible(connection.baseUrl)) {
+    return testOpenAiCompatibleConnection(connection);
+  }
+
   const startedAt = performance.now();
 
   try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetch(buildOllamaChatEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
@@ -72,13 +82,15 @@ export async function testOpenAiCompatibleConnection(
             content: "Reply with exactly: ok",
           },
         ],
-        max_tokens: 8,
-        temperature: 0,
         stream: false,
+        options: {
+          temperature: 0,
+          num_predict: 16,
+        },
       }),
     });
-
     const json = await safeJson(response);
+
     if (!response.ok) {
       return {
         ok: false,
@@ -88,24 +100,19 @@ export async function testOpenAiCompatibleConnection(
       };
     }
 
-    const content = json?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") {
+    if (!extractTextFromUnknown(json)) {
       return {
         ok: false,
         status: "failed",
-        message: "Protocol mismatch: response did not match Chat Completions.",
+        message: "Protocol mismatch: response did not contain Ollama message content.",
         latencyMs: Math.round(performance.now() - startedAt),
       };
     }
 
-    const streamingSupported = await probeStreaming(connection);
-
     return {
       ok: true,
       status: "connected",
-      message: streamingSupported
-        ? "Connection test succeeded. Streaming is supported."
-        : "Connection test succeeded. Streaming was not detected, so normal responses will be used.",
+      message: "Connection test succeeded.",
       latencyMs: Math.round(performance.now() - startedAt),
     };
   } catch (error) {
@@ -123,11 +130,13 @@ export async function testOpenAiCompatibleConnection(
   }
 }
 
-export async function fetchOpenAiCompatibleModels(
-  connection: ModelConnection
-): Promise<ModelListResult> {
+export async function fetchOllamaModels(connection: ModelConnection): Promise<ModelListResult> {
+  if (looksOpenAiCompatible(connection.baseUrl)) {
+    return fetchOpenAiCompatibleModels(connection);
+  }
+
   try {
-    const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
+    const response = await fetch(buildOllamaTagsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });
@@ -148,7 +157,7 @@ export async function fetchOpenAiCompatibleModels(
       message:
         models.length > 0
           ? `${models.length} models loaded.`
-          : "No models were returned by this endpoint.",
+          : "No Ollama models were returned by this endpoint.",
     };
   } catch (error) {
     return {
@@ -164,57 +173,29 @@ export async function fetchOpenAiCompatibleModels(
   }
 }
 
-async function probeStreaming(connection: ModelConnection) {
-  try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: buildBearerHeaders(connection),
-      body: JSON.stringify({
-        model: connection.model,
-        messages: [
-          {
-            role: "user",
-            content: "Reply with exactly: ok",
-          },
-        ],
-        max_tokens: 8,
-        temperature: 0,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok || !response.body) {
-      return false;
-    }
-
-    const reader = response.body.getReader();
-    const chunk = await reader.read();
-    await reader.cancel();
-    return Boolean(chunk.value);
-  } catch {
-    return false;
-  }
-}
-
-function buildChatCompletionsEndpoint(baseUrl: string) {
+function buildOllamaChatEndpoint(baseUrl: string) {
   const trimmed = trimBaseUrl(baseUrl);
-  if (trimmed.endsWith("/chat/completions")) {
+  if (trimmed.endsWith("/api/chat")) {
     return trimmed;
   }
 
-  return `${trimmed}/chat/completions`;
+  return `${trimmed}/api/chat`;
 }
 
-function buildModelsEndpoint(baseUrl: string) {
+function buildOllamaTagsEndpoint(baseUrl: string) {
   const trimmed = trimBaseUrl(baseUrl);
-  if (trimmed.endsWith("/models")) {
+  if (trimmed.endsWith("/api/tags")) {
     return trimmed;
   }
 
-  if (trimmed.endsWith("/chat/completions")) {
-    return trimmed.replace(/\/chat\/completions$/, "/models");
+  if (trimmed.endsWith("/api/chat")) {
+    return trimmed.replace(/\/api\/chat$/, "/api/tags");
   }
 
-  return `${trimmed}/models`;
+  return `${trimmed}/api/tags`;
+}
+
+function looksOpenAiCompatible(baseUrl: string) {
+  const trimmed = trimBaseUrl(baseUrl);
+  return trimmed.endsWith("/v1") || trimmed.includes("/v1/");
 }

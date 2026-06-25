@@ -512,14 +512,17 @@ function ResultView() {
 
   async function downloadPoster() {
     if (!posterRef.current) return;
-    const dataUrl = await toPng(posterRef.current, {
-      pixelRatio: 2,
-      backgroundColor: "#07010d",
-    });
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = "ai-council-result.png";
-    link.click();
+    try {
+      const dataUrl = await toPng(posterRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#07010d",
+      });
+      const blob = await (await fetch(dataUrl)).blob();
+      downloadBlob(blob, "ai-council-result.png");
+      setNotice(t("result.exported"));
+    } catch {
+      setNotice(t("result.downloadFailed"));
+    }
   }
 
   async function copyMarkdown() {
@@ -545,11 +548,7 @@ function ResultView() {
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "ai-council-session.json";
-    link.click();
-    URL.revokeObjectURL(link.href);
+    downloadBlob(blob, "ai-council-session.json");
     setNotice(t("result.exported"));
   }
 
@@ -665,23 +664,55 @@ function ConnectionsView() {
   const addBlankConnection = useAppStore((state) => state.addBlankConnection);
   const clearAllLocalData = useAppStore((state) => state.clearAllLocalData);
   const t = useMemo(() => createTranslator(language), [language]);
+  const liveConnections = connections.filter((connection) => connection.protocol !== "mock");
+  const connectedCount = connections.filter((connection) => connection.status === "connected").length;
 
   return (
-    <section>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="connections-screen">
+      <div className="connections-hero">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("connections.title")}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-stone-600">{t("connections.subtitle")}</p>
+          <p className="connection-eyebrow">AI Council</p>
+          <h1>{t("connections.title")}</h1>
+          <p>{t("connections.subtitle")}</p>
+        </div>
+        <div className="connection-stats">
+          <span>{connectedCount}/{connections.length}</span>
+          <small>{language === "zh" ? "可用席位" : "ready seats"}</small>
         </div>
         <button className="primary-button" onClick={addBlankConnection}>
           <Plus size={16} />
           <span>{t("connections.add")}</span>
         </button>
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="connection-timeline" aria-label={language === "zh" ? "连接概览" : "Connection overview"}>
         {connections.map((connection) => (
-          <ConnectionCard key={connection.id} connection={connection} />
+          <span className={clsx("timeline-pill", connection.status)} key={connection.id}>
+            <StatusIcon status={connection.status} />
+            <span>{connection.name}</span>
+          </span>
         ))}
+      </div>
+      <div className="connections-layout">
+        <div className="grid min-w-0 gap-4">
+          {connections.map((connection) => (
+            <ConnectionCard key={connection.id} connection={connection} />
+          ))}
+        </div>
+        <aside className="connection-sidecar">
+          <div>
+            <p className="connection-eyebrow">{language === "zh" ? "席位策略" : "Seat strategy"}</p>
+            <h2>{language === "zh" ? "从一个 Key 开始" : "Start with one key"}</h2>
+            <p>
+              {language === "zh"
+                ? "先让一个模型扮演所有角色。需要更尖锐的分歧时，再把关键角色升级到不同供应商。"
+                : "Let one model play every role first. Upgrade key roles to different providers when you need sharper disagreement."}
+            </p>
+          </div>
+          <div className="sidecar-meter">
+            <span>{liveConnections.length}</span>
+            <small>{language === "zh" ? "自定义连接" : "custom connections"}</small>
+          </div>
+        </aside>
       </div>
       <div className="mt-4 surface-panel p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -714,6 +745,8 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
     connection.customHeaders ? JSON.stringify(connection.customHeaders, null, 2) : ""
   );
   const isMock = draft.protocol === "mock";
+  const presets = useMemo(() => buildConnectionPresets(t), [t]);
+  const selectedPreset = presets.find((preset) => preset.matches(draft));
 
   function buildDraftFromForm() {
     const trimmed = headersText.trim();
@@ -762,178 +795,164 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
     }
   }
 
+  function applyPreset(preset: Partial<ModelConnection>, headers = "") {
+    setDraft({
+      ...draft,
+      availableModels: undefined,
+      customHeaders: undefined,
+      ...preset,
+    });
+    setHeadersText(headers);
+  }
+
+  function applyProviderPreset(preset: ConnectionPreset) {
+    applyPreset(
+      {
+        name: preset.name,
+        protocol: preset.protocol,
+        baseUrl: preset.baseUrl,
+        model: preset.model,
+        availableModels: preset.availableModels,
+      },
+      preset.headersText ?? ""
+    );
+  }
+
   return (
-    <div className="surface-panel p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <StatusIcon status={connection.status} />
-          <h2 className="text-sm font-semibold">{connection.name}</h2>
+    <div className="connection-card">
+      <div className="connection-card-header">
+        <div>
+          <p className="connection-eyebrow">{protocolLabel(draft.protocol)}</p>
+          <h2>{draft.name}</h2>
+          <p title={draft.model}>{draft.model}</p>
         </div>
-        <span className="text-xs text-stone-500">{connection.statusMessage ?? statusText(connection.status, t)}</span>
+        <span className={clsx("connection-status", connection.status)}>
+          <StatusIcon status={connection.status} />
+          <span>{connection.statusMessage ?? statusText(connection.status, t)}</span>
+        </span>
       </div>
       {isMock ? (
-        <p className="text-sm text-stone-600">{t("connections.mockReady")}</p>
+        <div className="mock-connection-panel">
+          <Sparkles size={18} />
+          <p>{t("connections.mockReady")}</p>
+        </div>
       ) : (
-        <div className="grid gap-3">
-          <div className="rounded-md border border-stone-200 bg-stone-50 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
-              {t("connections.presets")}
-            </p>
-            <div className="flex flex-wrap gap-2">
+        <div className="connection-flow">
+          <div className="provider-dock" aria-label={t("connections.presets")}>
+            {presets.map((preset) => (
               <button
-                className="preset-chip"
-                onClick={() => {
-                  setDraft({
-                    ...draft,
-                    name: "OpenAI Official",
-                    baseUrl: "https://api.openai.com/v1",
-                    model: "gpt-4.1-mini",
-                    customHeaders: undefined,
-                  });
-                  setHeadersText("");
-                }}
+                className={clsx("provider-pill", selectedPreset?.id === preset.id && "selected")}
+                key={preset.id}
+                onClick={() => applyProviderPreset(preset)}
               >
-                {t("connections.openaiPreset")}
+                <span>{preset.label}</span>
+                <small>{preset.shortLabel}</small>
               </button>
-              <button
-                className="preset-chip"
-                onClick={() => {
-                  setDraft({
-                    ...draft,
-                    name: "DeepSeek Official",
-                    baseUrl: "https://api.deepseek.com",
-                    model: "deepseek-v4-flash",
-                    availableModels: ["deepseek-v4-flash", "deepseek-v4-pro"],
-                    customHeaders: undefined,
-                  });
-                  setHeadersText("");
-                }}
-              >
-                {t("connections.deepseekPreset")}
-              </button>
-              <button
-                className="preset-chip"
-                onClick={() => {
-                  setDraft({
-                    ...draft,
-                    name: "OpenRouter Compatible",
-                    baseUrl: "https://openrouter.ai/api/v1",
-                    model: "openai/gpt-4.1-mini",
-                    availableModels: undefined,
-                  });
-                  setHeadersText(
-                    JSON.stringify(
-                      {
-                        "HTTP-Referer": window.location.origin,
-                        "X-Title": "AI Council",
-                      },
-                      null,
-                      2
-                    )
-                  );
-                }}
-              >
-                {t("connections.openrouterPreset")}
-              </button>
-              <button
-                className="preset-chip"
-                onClick={() => {
-                  setDraft({
-                    ...draft,
-                    name: "Custom Relay",
-                    baseUrl: "https://your-relay.example.com/v1",
-                    model: "your-model-id",
-                    availableModels: undefined,
-                    customHeaders: undefined,
-                  });
-                  setHeadersText("");
-                }}
-              >
-                {t("connections.relayPreset")}
-              </button>
-            </div>
-            <p className="mt-3 text-xs leading-5 text-stone-500">
-              {t("connections.corsHint")}
-            </p>
+            ))}
           </div>
-          <label className="field-label compact">
-            <span>{t("connections.name")}</span>
-            <input className="text-input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-          </label>
-          <label className="field-label compact">
-            <span>{t("connections.protocol")}</span>
-            <select
-              className="text-input"
-              value={draft.protocol}
-              onChange={(event) =>
-                setDraft({ ...draft, protocol: event.target.value as ModelProtocol })
-              }
-            >
-              <option value="openai-chat-completions">OpenAI-compatible Chat Completions</option>
-              <option value="openai-responses" disabled>OpenAI Responses ({t("connections.unsupported")})</option>
-              <option value="anthropic-messages" disabled>Anthropic Messages ({t("connections.unsupported")})</option>
-              <option value="gemini" disabled>Gemini ({t("connections.unsupported")})</option>
-              <option value="ollama" disabled>Ollama / LM Studio ({t("connections.unsupported")})</option>
-              <option value="custom" disabled>Custom ({t("connections.unsupported")})</option>
-            </select>
-          </label>
-          <label className="field-label compact">
-            <span>{t("connections.baseUrl")}</span>
-            <input className="text-input" value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} />
-          </label>
-          <label className="field-label compact">
-            <span>{t("connections.model")}</span>
-            {draft.availableModels && draft.availableModels.length > 0 ? (
-              <select
+
+          <div className="connection-form-grid">
+            <label className="field-label compact">
+              <span>{t("connections.name")}</span>
+              <input className="text-input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+            </label>
+            <label className="field-label compact">
+              <span>{t("connections.model")}</span>
+              {draft.availableModels && draft.availableModels.length > 0 ? (
+                <select
+                  className="text-input"
+                  value={draft.model}
+                  onChange={(event) => setDraft({ ...draft, model: event.target.value })}
+                >
+                  {draft.availableModels.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input className="text-input" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} />
+              )}
+            </label>
+            <label className="field-label compact connection-api-key">
+              <span>{t("connections.apiKey")}</span>
+              <input
                 className="text-input"
-                value={draft.model}
-                onChange={(event) => setDraft({ ...draft, model: event.target.value })}
-              >
-                {draft.availableModels.map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input className="text-input" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} />
-            )}
-          </label>
-          <label className="field-label compact">
-            <span>{t("connections.apiKey")}</span>
-            <input
-              className="text-input"
-              type="password"
-              value={draft.apiKey ?? ""}
-              onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
-            />
-          </label>
-          <label className="field-label compact">
-            <span>{t("connections.headers")}</span>
-            <textarea
-              className="text-input min-h-24 resize-y font-mono text-xs"
-              value={headersText}
-              onChange={(event) => setHeadersText(event.target.value)}
-              placeholder='{"HTTP-Referer":"https://example.com"}'
-            />
-            <span className="text-xs font-normal leading-5 text-stone-500">
-              {t("connections.headersHelp")}
-            </span>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-stone-700">
-            <input
-              type="checkbox"
-              checked={draft.secretStorage === "local"}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  secretStorage: event.target.checked ? "local" : "session",
-                })
-              }
-            />
-            <span>{t("connections.storeKey")}</span>
-          </label>
-          <div className="flex flex-wrap gap-2">
+                type="password"
+                value={draft.apiKey ?? ""}
+                onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
+              />
+            </label>
+          </div>
+
+          <details className="connection-details">
+            <summary>
+              <span>{language === "zh" ? "Endpoint 与协议" : "Endpoint and protocol"}</span>
+              <ChevronRight size={16} />
+            </summary>
+            <div className="connection-details-grid">
+              <label className="field-label compact">
+                <span>{t("connections.protocol")}</span>
+                <select
+                  className="text-input"
+                  value={draft.protocol}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      availableModels: undefined,
+                      protocol: event.target.value as ModelProtocol,
+                    })
+                  }
+                >
+                  <option value="openai-chat-completions">OpenAI-compatible Chat Completions</option>
+                  <option value="openai-responses">OpenAI Responses</option>
+                  <option value="anthropic-messages">Anthropic Messages</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="ollama">Ollama / LM Studio</option>
+                  <option value="custom">Custom JSON</option>
+                </select>
+              </label>
+              <label className="field-label compact">
+                <span>{t("connections.baseUrl")}</span>
+                <input className="text-input" value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} />
+              </label>
+            </div>
+          </details>
+
+          <details className="connection-details">
+            <summary>
+              <span>{language === "zh" ? "Headers 与本地保存" : "Headers and local storage"}</span>
+              <ChevronRight size={16} />
+            </summary>
+            <label className="field-label compact">
+              <span>{t("connections.headers")}</span>
+              <textarea
+                className="text-input min-h-24 resize-y font-mono text-xs"
+                value={headersText}
+                onChange={(event) => setHeadersText(event.target.value)}
+                placeholder='{"HTTP-Referer":"https://example.com"}'
+              />
+              <span className="text-xs font-normal leading-5 text-stone-500">
+                {t("connections.headersHelp")}
+              </span>
+            </label>
+            <label className="connection-toggle">
+              <input
+                type="checkbox"
+                checked={draft.secretStorage === "local"}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    secretStorage: event.target.checked ? "local" : "session",
+                  })
+                }
+              />
+              <span>{t("connections.storeKey")}</span>
+            </label>
+            <p className="connection-hint">{t("connections.corsHint")}</p>
+          </details>
+
+          <div className="connection-actions">
             <button className="secondary-button" onClick={() => void saveDraft()}>
               <Save size={16} />
               <span>{t("connections.save")}</span>
@@ -955,6 +974,140 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
       )}
     </div>
   );
+}
+
+type ConnectionPreset = {
+  id: string;
+  label: string;
+  shortLabel: string;
+  name: string;
+  protocol: Exclude<ModelProtocol, "mock">;
+  baseUrl: string;
+  model: string;
+  availableModels?: string[];
+  headersText?: string;
+  matches: (connection: ModelConnection) => boolean;
+};
+
+function buildConnectionPresets(
+  t: ReturnType<typeof createTranslator>
+): ConnectionPreset[] {
+  const openRouterHeaders = JSON.stringify(
+    {
+      "HTTP-Referer": window.location.origin,
+      "X-Title": "AI Council",
+    },
+    null,
+    2
+  );
+
+  const presets: Array<Omit<ConnectionPreset, "matches">> = [
+    {
+      id: "openai-chat",
+      label: t("connections.openaiPreset"),
+      shortLabel: "Chat",
+      name: "OpenAI Official",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4.1-mini",
+    },
+    {
+      id: "openai-responses",
+      label: t("connections.openaiResponsesPreset"),
+      shortLabel: "Responses",
+      name: "OpenAI Responses",
+      protocol: "openai-responses",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4.1-mini",
+    },
+    {
+      id: "deepseek",
+      label: t("connections.deepseekPreset"),
+      shortLabel: "DeepSeek",
+      name: "DeepSeek Official",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+      availableModels: ["deepseek-v4-flash", "deepseek-v4-pro"],
+    },
+    {
+      id: "anthropic",
+      label: t("connections.anthropicPreset"),
+      shortLabel: "Messages",
+      name: "Anthropic",
+      protocol: "anthropic-messages",
+      baseUrl: "https://api.anthropic.com/v1",
+      model: "claude-sonnet-4-5",
+    },
+    {
+      id: "gemini",
+      label: t("connections.geminiPreset"),
+      shortLabel: "Google",
+      name: "Gemini",
+      protocol: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      model: "gemini-2.5-flash",
+    },
+    {
+      id: "ollama",
+      label: t("connections.ollamaPreset"),
+      shortLabel: "Local",
+      name: "Ollama Local",
+      protocol: "ollama",
+      baseUrl: "http://localhost:11434",
+      model: "llama3.2",
+    },
+    {
+      id: "openrouter",
+      label: t("connections.openrouterPreset"),
+      shortLabel: "Relay",
+      name: "OpenRouter Compatible",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1-mini",
+      headersText: openRouterHeaders,
+    },
+    {
+      id: "custom-relay",
+      label: t("connections.relayPreset"),
+      shortLabel: "Relay",
+      name: "Custom Relay",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://your-relay.example.com/v1",
+      model: "your-model-id",
+    },
+    {
+      id: "custom-json",
+      label: t("connections.customJsonPreset"),
+      shortLabel: "JSON",
+      name: "Custom JSON",
+      protocol: "custom",
+      baseUrl: "https://your-endpoint.example.com/invoke",
+      model: "your-model-id",
+    },
+  ];
+
+  return presets.map((preset) => ({
+    ...preset,
+    matches: (connection) =>
+      connection.protocol === preset.protocol &&
+      connection.baseUrl === preset.baseUrl &&
+      (connection.name === preset.name || connection.model === preset.model),
+  }));
+}
+
+function protocolLabel(protocol: ModelProtocol) {
+  const labels: Record<ModelProtocol, string> = {
+    mock: "Mock",
+    "openai-chat-completions": "Chat Completions",
+    "openai-responses": "Responses",
+    "anthropic-messages": "Anthropic Messages",
+    gemini: "Gemini",
+    ollama: "Ollama / LM Studio",
+    custom: "Custom JSON",
+  };
+
+  return labels[protocol];
 }
 
 function HistoryView() {
@@ -1136,6 +1289,21 @@ function copyViaClipboardEvent(text: string) {
   } finally {
     document.removeEventListener("copy", onCopy);
   }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  window.setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 0);
 }
 
 function formatStage(stage: SessionStage, language: "en" | "zh") {

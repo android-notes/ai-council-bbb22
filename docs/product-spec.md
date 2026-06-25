@@ -77,8 +77,7 @@ First-run setup should support one-key usage:
 - One model can power all roles through different prompts.
 - Additional models are optional upgrades.
 - OpenAI-compatible Chat Completions should be the default protocol for relay and aggregator users.
-- v1 should ship a mock provider and an OpenAI-compatible Chat Completions adapter.
-- Other protocols can be added later as adapters: OpenAI Responses, Anthropic Messages, Gemini, Ollama/LM Studio, custom.
+- v1 ships a mock provider plus adapters for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, Ollama/LM Studio, and Custom JSON endpoints.
 
 The internal abstraction should be:
 
@@ -108,8 +107,12 @@ v1 provider scope:
 
 - **Mock provider**: powers the complete demo flow without requiring a key.
 - **OpenAI-compatible Chat Completions**: supports relay sites, OpenRouter-like aggregators, and compatible self-hosted endpoints.
-- **Model discovery**: fetches model IDs through OpenAI-compatible `/models` endpoints, including DeepSeek-compatible deployments when CORS allows.
-- **Post-v1 adapters**: OpenAI Responses, Anthropic Messages, Gemini, Ollama/LM Studio, and custom request templates.
+- **OpenAI Responses**: supports `/responses` endpoints for OpenAI-compatible accounts and relays.
+- **Anthropic Messages**: supports `/messages` with `x-api-key` and `anthropic-version` headers.
+- **Gemini**: supports `models/{model}:generateContent` with `x-goog-api-key`.
+- **Ollama / LM Studio**: supports native Ollama `/api/chat` and OpenAI-compatible `/v1` local servers.
+- **Custom JSON**: posts a generic payload to an exact endpoint and extracts common text response shapes.
+- **Model discovery**: fetches model IDs through OpenAI-compatible `/models`, Anthropic `/models`, Gemini `/models`, and Ollama `/api/tags` endpoints when CORS allows.
 
 Role-to-model assignment should support:
 

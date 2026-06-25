@@ -1,35 +1,29 @@
+import type { ModelConnection } from "../types";
 import type {
   ConnectionTestResult,
   ModelListResult,
   ModelRequest,
   ModelResponse,
 } from "./types";
-import type { ModelConnection } from "../types";
 import {
-  buildBearerHeaders,
   buildSystemPrompt,
   buildUserPrompt,
   extractErrorMessage,
   extractModelIds,
+  extractTextFromUnknown,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
-export async function askOpenAiCompatible(
-  request: ModelRequest
-): Promise<ModelResponse> {
-  const endpoint = buildChatCompletionsEndpoint(request.connection.baseUrl);
-  const response = await fetch(endpoint, {
+export async function askAnthropicMessages(request: ModelRequest): Promise<ModelResponse> {
+  const response = await fetch(buildMessagesEndpoint(request.connection.baseUrl), {
     method: "POST",
-    headers: buildBearerHeaders(request.connection),
+    headers: buildAnthropicHeaders(request.connection),
     body: JSON.stringify({
       model: request.connection.model,
+      system: buildSystemPrompt(request),
       messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(request),
-        },
         {
           role: "user",
           content: buildUserPrompt(request),
@@ -46,24 +40,23 @@ export async function askOpenAiCompatible(
     throw new Error(extractErrorMessage(json, response.status));
   }
 
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Protocol mismatch: missing choices[0].message.content.");
+  const content = extractTextFromUnknown(json);
+  if (!content.trim()) {
+    throw new Error("Protocol mismatch: response did not contain Anthropic content text.");
   }
 
   return { content, raw: json };
 }
 
-export async function testOpenAiCompatibleConnection(
+export async function testAnthropicMessagesConnection(
   connection: ModelConnection
 ): Promise<ConnectionTestResult> {
   const startedAt = performance.now();
 
   try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetch(buildMessagesEndpoint(connection.baseUrl), {
       method: "POST",
-      headers: buildBearerHeaders(connection),
+      headers: buildAnthropicHeaders(connection),
       body: JSON.stringify({
         model: connection.model,
         messages: [
@@ -72,13 +65,13 @@ export async function testOpenAiCompatibleConnection(
             content: "Reply with exactly: ok",
           },
         ],
-        max_tokens: 8,
+        max_tokens: 16,
         temperature: 0,
         stream: false,
       }),
     });
-
     const json = await safeJson(response);
+
     if (!response.ok) {
       return {
         ok: false,
@@ -88,24 +81,19 @@ export async function testOpenAiCompatibleConnection(
       };
     }
 
-    const content = json?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") {
+    if (!extractTextFromUnknown(json)) {
       return {
         ok: false,
         status: "failed",
-        message: "Protocol mismatch: response did not match Chat Completions.",
+        message: "Protocol mismatch: response did not contain Anthropic content text.",
         latencyMs: Math.round(performance.now() - startedAt),
       };
     }
 
-    const streamingSupported = await probeStreaming(connection);
-
     return {
       ok: true,
       status: "connected",
-      message: streamingSupported
-        ? "Connection test succeeded. Streaming is supported."
-        : "Connection test succeeded. Streaming was not detected, so normal responses will be used.",
+      message: "Connection test succeeded.",
       latencyMs: Math.round(performance.now() - startedAt),
     };
   } catch (error) {
@@ -123,13 +111,13 @@ export async function testOpenAiCompatibleConnection(
   }
 }
 
-export async function fetchOpenAiCompatibleModels(
+export async function fetchAnthropicModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
     const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
       method: "GET",
-      headers: buildBearerHeaders(connection),
+      headers: buildAnthropicHeaders(connection),
     });
     const json = await safeJson(response);
 
@@ -164,46 +152,29 @@ export async function fetchOpenAiCompatibleModels(
   }
 }
 
-async function probeStreaming(connection: ModelConnection) {
-  try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: buildBearerHeaders(connection),
-      body: JSON.stringify({
-        model: connection.model,
-        messages: [
-          {
-            role: "user",
-            content: "Reply with exactly: ok",
-          },
-        ],
-        max_tokens: 8,
-        temperature: 0,
-        stream: true,
-      }),
-    });
+function buildAnthropicHeaders(connection: ModelConnection) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+  };
 
-    if (!response.ok || !response.body) {
-      return false;
-    }
-
-    const reader = response.body.getReader();
-    const chunk = await reader.read();
-    await reader.cancel();
-    return Boolean(chunk.value);
-  } catch {
-    return false;
+  if (connection.apiKey) {
+    headers["x-api-key"] = connection.apiKey;
   }
+
+  return {
+    ...headers,
+    ...(connection.customHeaders ?? {}),
+  };
 }
 
-function buildChatCompletionsEndpoint(baseUrl: string) {
+function buildMessagesEndpoint(baseUrl: string) {
   const trimmed = trimBaseUrl(baseUrl);
-  if (trimmed.endsWith("/chat/completions")) {
+  if (trimmed.endsWith("/messages")) {
     return trimmed;
   }
 
-  return `${trimmed}/chat/completions`;
+  return `${trimmed}/messages`;
 }
 
 function buildModelsEndpoint(baseUrl: string) {
@@ -212,8 +183,8 @@ function buildModelsEndpoint(baseUrl: string) {
     return trimmed;
   }
 
-  if (trimmed.endsWith("/chat/completions")) {
-    return trimmed.replace(/\/chat\/completions$/, "/models");
+  if (trimmed.endsWith("/messages")) {
+    return trimmed.replace(/\/messages$/, "/models");
   }
 
   return `${trimmed}/models`;

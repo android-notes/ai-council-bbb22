@@ -45,6 +45,7 @@ body {
 
 .app-shell {
   min-height: 100vh;
+  overflow-x: clip;
   color: #fff9ef;
   background:
     linear-gradient(180deg, rgba(5, 1, 8, 0.18), #050108 82%),
@@ -53,6 +54,8 @@ body {
 
 .app-frame {
   position: relative;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .app-frame::before {
@@ -70,6 +73,7 @@ body {
 .app-frame > * {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .app-header {
@@ -319,6 +323,310 @@ body {
   border-color: rgba(246, 200, 95, 0.72);
   color: #120019;
   background: linear-gradient(120deg, #fff3b8, #f6c85f);
+}
+
+.connections-screen {
+  @apply grid gap-4;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.connections-hero {
+  @apply grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end sm:p-6;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 249, 239, 0.18), rgba(143, 155, 154, 0.16)),
+    linear-gradient(180deg, rgba(48, 59, 60, 0.74), rgba(20, 12, 24, 0.8));
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.connections-hero > div:first-child {
+  min-width: 0;
+}
+
+.connections-hero h1 {
+  @apply mt-2 text-5xl font-black leading-none sm:text-6xl;
+  color: #fffaf2;
+  overflow-wrap: anywhere;
+}
+
+.connections-hero p:not(.connection-eyebrow) {
+  @apply mt-3 max-w-3xl text-sm leading-6;
+  color: rgba(255, 250, 242, 0.76);
+}
+
+.connection-eyebrow {
+  @apply text-xs font-black uppercase;
+  letter-spacing: 0;
+  color: rgba(246, 200, 95, 0.92);
+}
+
+.connection-stats {
+  @apply inline-grid h-20 w-24 place-items-center justify-self-start px-3 py-2 text-center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: #fffaf2;
+  background: rgba(9, 13, 16, 0.54);
+}
+
+.connection-stats span,
+.sidecar-meter span {
+  @apply text-2xl font-black leading-none;
+}
+
+.connection-stats small,
+.sidecar-meter small {
+  @apply text-xs font-bold;
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.connections-layout {
+  @apply grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px];
+}
+
+.connection-timeline {
+  @apply flex gap-2 overflow-x-auto pb-1;
+  min-width: 0;
+  max-width: 100%;
+  scrollbar-width: none;
+}
+
+.connection-timeline::-webkit-scrollbar,
+.provider-dock::-webkit-scrollbar {
+  display: none;
+}
+
+.timeline-pill {
+  @apply inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-bold;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 250, 242, 0.8);
+  background: rgba(16, 18, 20, 0.7);
+}
+
+.timeline-pill.connected {
+  border-color: rgba(165, 214, 167, 0.5);
+  color: #dff7df;
+}
+
+.timeline-pill.failed {
+  border-color: rgba(255, 67, 127, 0.5);
+  color: #ffc5d8;
+}
+
+.connection-sidecar {
+  @apply grid content-between gap-6 p-5 xl:sticky xl:top-4;
+  min-height: 260px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #121014;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(226, 221, 209, 0.9)),
+    #fffaf2;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(255, 255, 255, 0.54) inset;
+}
+
+.connection-sidecar .connection-eyebrow {
+  color: #7d5a16;
+}
+
+.connection-sidecar h2 {
+  @apply mt-2 text-3xl font-black leading-none;
+}
+
+.connection-sidecar p {
+  @apply mt-4 text-sm leading-6;
+  color: rgba(18, 16, 20, 0.68);
+}
+
+.sidecar-meter {
+  @apply grid w-28 place-items-center justify-self-end px-3 py-3 text-center;
+  border-radius: 8px;
+  color: #fffaf2;
+  background: #111114;
+}
+
+.connection-card {
+  @apply grid gap-4 p-4 sm:p-5;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 8px;
+  color: #121014;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(238, 233, 222, 0.94)),
+    #fffaf2;
+  box-shadow:
+    0 26px 72px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(255, 255, 255, 0.48) inset;
+}
+
+.connection-card-header {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+  min-width: 0;
+}
+
+.connection-card-header > div {
+  min-width: 0;
+}
+
+.connection-card-header h2 {
+  @apply mt-1 text-2xl font-black leading-tight;
+  overflow-wrap: anywhere;
+}
+
+.connection-card-header p:not(.connection-eyebrow) {
+  @apply mt-1 text-sm font-semibold;
+  color: rgba(18, 16, 20, 0.58);
+  overflow-wrap: anywhere;
+}
+
+.connection-status {
+  @apply inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-black sm:shrink-0;
+  align-self: flex-start;
+  max-width: 100%;
+  color: rgba(18, 16, 20, 0.7);
+  background: rgba(18, 16, 20, 0.06);
+}
+
+.connection-status.connected {
+  color: #163b1c;
+  background: rgba(165, 214, 167, 0.34);
+}
+
+.connection-status.failed {
+  color: #7e123d;
+  background: rgba(255, 67, 127, 0.16);
+}
+
+.mock-connection-panel {
+  @apply flex items-center gap-3 rounded-md px-4 py-4 text-sm font-semibold;
+  border: 1px solid rgba(18, 16, 20, 0.08);
+  background: rgba(18, 16, 20, 0.04);
+}
+
+.provider-dock {
+  @apply flex gap-2 overflow-x-auto pb-1;
+  min-width: 0;
+  max-width: 100%;
+  scrollbar-width: none;
+}
+
+.provider-pill {
+  @apply grid min-h-16 min-w-32 shrink-0 content-center rounded-md px-4 py-2 text-left transition;
+  border: 1px solid rgba(18, 16, 20, 0.08);
+  color: rgba(18, 16, 20, 0.72);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.provider-pill span {
+  @apply text-sm font-black;
+}
+
+.provider-pill small {
+  @apply mt-1 text-xs font-bold;
+  color: rgba(18, 16, 20, 0.44);
+}
+
+.provider-pill:hover,
+.provider-pill.selected {
+  border-color: rgba(246, 200, 95, 0.68);
+  color: #110e13;
+  transform: translateY(-1px);
+  background: linear-gradient(120deg, #fff4bd, #f6c85f);
+  box-shadow: 0 12px 28px rgba(126, 89, 18, 0.18);
+}
+
+.connection-form-grid,
+.connection-details-grid {
+  @apply grid min-w-0 gap-3 md:grid-cols-2;
+}
+
+.connection-flow,
+.connection-details {
+  min-width: 0;
+}
+
+.connection-api-key {
+  @apply md:col-span-2;
+}
+
+.connection-card .field-label {
+  color: rgba(18, 16, 20, 0.7);
+}
+
+.connection-card .text-input {
+  border-color: rgba(18, 16, 20, 0.12);
+  color: #121014;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.connection-card .text-input::placeholder {
+  color: rgba(18, 16, 20, 0.32);
+}
+
+.connection-card .text-input:focus {
+  border-color: rgba(126, 89, 18, 0.5);
+  box-shadow:
+    0 0 0 3px rgba(246, 200, 95, 0.18),
+    0 12px 26px rgba(18, 16, 20, 0.08);
+}
+
+.connection-details {
+  @apply rounded-md px-3 py-2;
+  border: 1px solid rgba(18, 16, 20, 0.08);
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.connection-details summary {
+  @apply flex cursor-pointer select-none items-center justify-between gap-3 text-sm font-black;
+  color: rgba(18, 16, 20, 0.76);
+}
+
+.connection-details summary svg {
+  transition: transform 160ms ease;
+}
+
+.connection-details[open] summary svg {
+  transform: rotate(90deg);
+}
+
+.connection-details > :not(summary) {
+  @apply mt-3;
+}
+
+.connection-toggle {
+  @apply mt-3 flex items-center gap-2 text-sm font-bold;
+  color: rgba(18, 16, 20, 0.68);
+}
+
+.connection-hint {
+  @apply mt-3 text-xs leading-5;
+  color: rgba(18, 16, 20, 0.48);
+}
+
+.connection-actions {
+  @apply grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap;
+}
+
+.connection-card .secondary-button {
+  border-color: rgba(18, 16, 20, 0.12);
+  color: rgba(18, 16, 20, 0.72);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.connection-card .secondary-button:hover {
+  color: #121014;
+  border-color: rgba(126, 89, 18, 0.44);
+  box-shadow: 0 10px 24px rgba(18, 16, 20, 0.1);
+}
+
+.connection-card .danger-button {
+  color: #8f1748;
+  background: rgba(255, 67, 127, 0.08);
 }
 
 .field-label {

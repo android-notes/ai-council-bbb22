@@ -50,12 +50,16 @@ Before publishing, confirm GitHub Pages is set to **GitHub Actions** in the repo
 
 1. Open the app.
 2. Try the mock flow without any API key.
-3. Add an OpenAI-compatible model connection when you want real model calls.
+3. Add a model connection when you want real model calls.
    - OpenAI official: `https://api.openai.com/v1`
    - DeepSeek official: `https://api.deepseek.com`
+   - Anthropic: `https://api.anthropic.com/v1`
+   - Gemini: `https://generativelanguage.googleapis.com/v1beta`
+   - Ollama local: `http://localhost:11434`
    - OpenRouter or compatible relay: `https://openrouter.ai/api/v1`
    - Custom relay or self-hosted proxy: use its OpenAI-compatible `/v1` base URL.
-4. Click **Fetch models** to load model IDs from `/models` when the endpoint supports it.
+   - Custom JSON endpoint: provide the exact POST endpoint and return a common text field such as `content`, `text`, `response`, `output_text`, `choices`, or Gemini-style `candidates`.
+4. Click **Fetch models** to load model IDs when the endpoint supports it.
 5. If the browser blocks CORS, use your own Worker, Function, local proxy, or compatible relay endpoint.
 6. Build a council lineup, optionally optimize model seats, and start the meeting.
 7. Export the result as a poster, Markdown, JSON, share title, or short-video script.
@@ -68,14 +72,18 @@ For privacy and key-handling details, see [docs/security.md](docs/security.md).
 
 - Mock provider for a complete no-key demo flow.
 - OpenAI-compatible Chat Completions adapter for relay, aggregator, and self-hosted compatible endpoints.
-- Model discovery through OpenAI-compatible `/models` endpoints.
-- Additional adapters such as Anthropic Messages, Gemini, and OpenAI Responses are post-v1.
+- OpenAI Responses adapter.
+- Anthropic Messages adapter.
+- Gemini `generateContent` adapter.
+- Ollama native `/api/chat` adapter, plus LM Studio-style `/v1` compatibility.
+- Custom JSON POST adapter for self-hosted endpoints and relay services.
+- Model discovery through OpenAI-compatible `/models`, Anthropic `/models`, Gemini `/models`, and Ollama `/api/tags` endpoints when CORS allows.
 
 ## Current v1 Shell
 
 - Chinese and English UI with browser-language auto detection and manual switching.
 - Mock debate/council flow from topic input to role lineup, staged meeting, result page, and local history.
-- Model connection screen with Mock Provider and OpenAI-compatible connection testing.
+- Model connection screen with Mock Provider plus OpenAI-compatible, OpenAI Responses, Anthropic, Gemini, Ollama/LM Studio, and Custom JSON connection testing.
 - Editable role prompts, model seats, and model-failure fallback policy before each session.
 - Local privacy-first result sharing through poster download, Markdown copy, JSON export, share title, and short-video script.
 - Council diversity scoring to nudge users from one model seat toward richer multi-model lineups.

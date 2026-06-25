@@ -1,42 +1,32 @@
+import type { ModelConnection } from "../types";
 import type {
   ConnectionTestResult,
   ModelListResult,
   ModelRequest,
   ModelResponse,
 } from "./types";
-import type { ModelConnection } from "../types";
 import {
   buildBearerHeaders,
   buildSystemPrompt,
   buildUserPrompt,
   extractErrorMessage,
   extractModelIds,
+  extractTextFromUnknown,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
-export async function askOpenAiCompatible(
-  request: ModelRequest
-): Promise<ModelResponse> {
-  const endpoint = buildChatCompletionsEndpoint(request.connection.baseUrl);
-  const response = await fetch(endpoint, {
+export async function askOpenAiResponses(request: ModelRequest): Promise<ModelResponse> {
+  const response = await fetch(buildResponsesEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify({
       model: request.connection.model,
-      messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(request),
-        },
-        {
-          role: "user",
-          content: buildUserPrompt(request),
-        },
-      ],
+      instructions: buildSystemPrompt(request),
+      input: buildUserPrompt(request),
       temperature: request.mode === "arena" ? 0.85 : 0.45,
-      max_tokens: request.maxOutputTokens,
+      max_output_tokens: request.maxOutputTokens,
       stream: false,
     }),
   });
@@ -46,39 +36,33 @@ export async function askOpenAiCompatible(
     throw new Error(extractErrorMessage(json, response.status));
   }
 
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Protocol mismatch: missing choices[0].message.content.");
+  const content = extractTextFromUnknown(json);
+  if (!content.trim()) {
+    throw new Error("Protocol mismatch: response did not contain text output.");
   }
 
   return { content, raw: json };
 }
 
-export async function testOpenAiCompatibleConnection(
+export async function testOpenAiResponsesConnection(
   connection: ModelConnection
 ): Promise<ConnectionTestResult> {
   const startedAt = performance.now();
 
   try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetch(buildResponsesEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
         model: connection.model,
-        messages: [
-          {
-            role: "user",
-            content: "Reply with exactly: ok",
-          },
-        ],
-        max_tokens: 8,
+        input: "Reply with exactly: ok",
+        max_output_tokens: 16,
         temperature: 0,
         stream: false,
       }),
     });
-
     const json = await safeJson(response);
+
     if (!response.ok) {
       return {
         ok: false,
@@ -88,24 +72,19 @@ export async function testOpenAiCompatibleConnection(
       };
     }
 
-    const content = json?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") {
+    if (!extractTextFromUnknown(json)) {
       return {
         ok: false,
         status: "failed",
-        message: "Protocol mismatch: response did not match Chat Completions.",
+        message: "Protocol mismatch: response did not contain text output.",
         latencyMs: Math.round(performance.now() - startedAt),
       };
     }
 
-    const streamingSupported = await probeStreaming(connection);
-
     return {
       ok: true,
       status: "connected",
-      message: streamingSupported
-        ? "Connection test succeeded. Streaming is supported."
-        : "Connection test succeeded. Streaming was not detected, so normal responses will be used.",
+      message: "Connection test succeeded.",
       latencyMs: Math.round(performance.now() - startedAt),
     };
   } catch (error) {
@@ -123,11 +102,11 @@ export async function testOpenAiCompatibleConnection(
   }
 }
 
-export async function fetchOpenAiCompatibleModels(
+export async function fetchOpenAiResponsesModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
+    const response = await fetch(buildResponsesModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });
@@ -164,56 +143,23 @@ export async function fetchOpenAiCompatibleModels(
   }
 }
 
-async function probeStreaming(connection: ModelConnection) {
-  try {
-    const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: buildBearerHeaders(connection),
-      body: JSON.stringify({
-        model: connection.model,
-        messages: [
-          {
-            role: "user",
-            content: "Reply with exactly: ok",
-          },
-        ],
-        max_tokens: 8,
-        temperature: 0,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok || !response.body) {
-      return false;
-    }
-
-    const reader = response.body.getReader();
-    const chunk = await reader.read();
-    await reader.cancel();
-    return Boolean(chunk.value);
-  } catch {
-    return false;
-  }
-}
-
-function buildChatCompletionsEndpoint(baseUrl: string) {
+function buildResponsesEndpoint(baseUrl: string) {
   const trimmed = trimBaseUrl(baseUrl);
-  if (trimmed.endsWith("/chat/completions")) {
+  if (trimmed.endsWith("/responses")) {
     return trimmed;
   }
 
-  return `${trimmed}/chat/completions`;
+  return `${trimmed}/responses`;
 }
 
-function buildModelsEndpoint(baseUrl: string) {
+function buildResponsesModelsEndpoint(baseUrl: string) {
   const trimmed = trimBaseUrl(baseUrl);
   if (trimmed.endsWith("/models")) {
     return trimmed;
   }
 
-  if (trimmed.endsWith("/chat/completions")) {
-    return trimmed.replace(/\/chat\/completions$/, "/models");
+  if (trimmed.endsWith("/responses")) {
+    return trimmed.replace(/\/responses$/, "/models");
   }
 
   return `${trimmed}/models`;
