@@ -41,7 +41,7 @@ type ActionFeedback = {
   message: string;
 };
 
-const CONNECTION_ACTION_TIMEOUT_MS = 20_000;
+const CONNECTION_ACTION_TIMEOUT_MS = 10_000;
 
 const suggestedQuestions = {
   en: [
@@ -827,18 +827,32 @@ function ApiKeyModal() {
   const selectedPreset = presets.find((preset) => preset.matches(draft));
   const isWorking = Boolean(pendingAction);
 
+  useEffect(() => {
+    if (!pendingAction) return;
+
+    const message = connectionActionTimeoutMessage(language, pendingAction);
+    const timeoutId = window.setTimeout(() => {
+      setActionFeedback({ tone: "error", message });
+      setNotice(message);
+      setPendingAction(undefined);
+    }, CONNECTION_ACTION_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [language, pendingAction, setNotice]);
+
   function actionLabel(action: ConnectionAction) {
+    const seconds = Math.round(CONNECTION_ACTION_TIMEOUT_MS / 1000);
     if (language === "zh") {
       return {
-        fetch: "正在获取模型...",
-        test: "正在测试连接...",
+        fetch: `正在获取模型（最多 ${seconds} 秒）...`,
+        test: `正在测试连接（最多 ${seconds} 秒）...`,
         save: "正在保存...",
       }[action];
     }
 
     return {
-      fetch: "Loading models...",
-      test: "Testing connection...",
+      fetch: `Loading models, up to ${seconds}s...`,
+      test: `Testing connection, up to ${seconds}s...`,
       save: "Saving...",
     }[action];
   }
@@ -848,20 +862,17 @@ function ApiKeyModal() {
     setNotice(message);
   }
 
-  function actionTimeoutMessage(action: ConnectionAction) {
-    if (language === "zh") {
-      return {
-        fetch: "获取模型超时。请检查 Base URL、协议、CORS 或中转服务状态。",
-        test: "测试连接超时。请检查 Base URL、协议、CORS 或中转服务状态。",
-        save: "保存连接超时，请重试。",
-      }[action];
-    }
+  function cancelPendingAction() {
+    const message =
+      language === "zh"
+        ? "已停止等待连接测试结果。请检查 Base URL、协议、CORS 或中转服务状态。"
+        : "Stopped waiting for the connection test. Check the Base URL, protocol, CORS, or relay status.";
+    setPendingAction(undefined);
+    feedbackMessage("error", message);
+  }
 
-    return {
-      fetch: "Loading models timed out. Check the Base URL, protocol, CORS, or relay status.",
-      test: "Connection test timed out. Check the Base URL, protocol, CORS, or relay status.",
-      save: "Saving the connection timed out. Try again.",
-    }[action];
+  function actionTimeoutMessage(action: ConnectionAction) {
+    return connectionActionTimeoutMessage(language, action);
   }
 
   function buildDraftFromForm() {
@@ -1169,6 +1180,11 @@ function ApiKeyModal() {
             <Save size={16} />
             <span>{pendingAction === "save" ? actionLabel("save") : t("connections.save")}</span>
           </button>
+          {isWorking ? (
+            <button className="secondary-button" onClick={cancelPendingAction}>
+              <span>{language === "zh" ? "停止等待" : "Stop waiting"}</span>
+            </button>
+          ) : null}
         </div>
       </section>
     </div>
@@ -1792,6 +1808,22 @@ function statusText(
   if (status === "connected") return t("common.connected");
   if (status === "failed") return t("common.failed");
   return t("common.untested");
+}
+
+function connectionActionTimeoutMessage(language: "en" | "zh", action: ConnectionAction) {
+  if (language === "zh") {
+    return {
+      fetch: "获取模型超时。请检查 Base URL、协议、CORS 或中转服务状态。",
+      test: "测试连接超时。请检查 Base URL、协议、CORS 或中转服务状态。",
+      save: "保存连接超时，请重试。",
+    }[action];
+  }
+
+  return {
+    fetch: "Loading models timed out. Check the Base URL, protocol, CORS, or relay status.",
+    test: "Connection test timed out. Check the Base URL, protocol, CORS, or relay status.",
+    save: "Saving the connection timed out. Try again.",
+  }[action];
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
