@@ -427,7 +427,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const result = await fetchModelList(connection);
     if (!result.ok) {
-      set({ notice: result.message });
+      const failedConnection = {
+        ...connection,
+        status: "failed" as const,
+        statusMessage: result.message,
+      };
+      const connections = upsertConnection(get().connections, failedConnection);
+      set({ connections, notice: result.message });
+      await persistCurrentSettings(connections, get().language);
       return undefined;
     }
 

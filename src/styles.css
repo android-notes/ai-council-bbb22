@@ -720,6 +720,27 @@ body {
   color: #9f1f1f;
 }
 
+.connection-diagnostics {
+  @apply grid gap-2 rounded-md px-3 py-3 text-sm leading-6;
+  border: 1px solid rgba(180, 132, 38, 0.28);
+  background: linear-gradient(135deg, rgba(255, 247, 216, 0.92), rgba(255, 255, 255, 0.78));
+  color: rgba(54, 39, 12, 0.88);
+}
+
+.connection-diagnostics strong {
+  @apply text-sm;
+  color: #5c3b04;
+}
+
+.connection-diagnostics ul {
+  @apply grid gap-1 pl-5;
+  list-style: disc;
+}
+
+.connection-diagnostics li::marker {
+  color: #b87908;
+}
+
 .modal-scrim {
   @apply fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4;
   background:

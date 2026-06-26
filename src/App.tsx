@@ -826,6 +826,7 @@ function ApiKeyModal() {
   const presets = useMemo(() => buildConnectionPresets(t), [t]);
   const selectedPreset = presets.find((preset) => preset.matches(draft));
   const isWorking = Boolean(pendingAction);
+  const showConnectionDiagnostics = actionFeedback?.tone === "error";
 
   useEffect(() => {
     if (!pendingAction) return;
@@ -863,10 +864,7 @@ function ApiKeyModal() {
   }
 
   function cancelPendingAction() {
-    const message =
-      language === "zh"
-        ? "已停止等待连接测试结果。请检查 Base URL、协议、CORS 或中转服务状态。"
-        : "Stopped waiting for the connection test. Check the Base URL, protocol, CORS, or relay status.";
+    const message = connectionStoppedMessage(language);
     setPendingAction(undefined);
     feedbackMessage("error", message);
   }
@@ -927,6 +925,11 @@ function ApiKeyModal() {
   async function fetchDraftModels() {
     const nextDraft = buildDraftFromForm();
     if (!nextDraft) return;
+    const targetError = validateConnectionTarget(language, nextDraft);
+    if (targetError) {
+      feedbackMessage("error", targetError);
+      return;
+    }
     setPendingAction("fetch");
     setActionFeedback({ tone: "neutral", message: actionLabel("fetch") });
     try {
@@ -968,6 +971,11 @@ function ApiKeyModal() {
   async function saveAndTestDraft() {
     const nextDraft = buildDraftFromForm();
     if (!nextDraft) return;
+    const targetError = validateConnectionTarget(language, nextDraft);
+    if (targetError) {
+      feedbackMessage("error", targetError);
+      return;
+    }
     setPendingAction("test");
     setActionFeedback({ tone: "neutral", message: actionLabel("test") });
     try {
@@ -1155,6 +1163,10 @@ function ApiKeyModal() {
           </p>
         ) : null}
 
+        {showConnectionDiagnostics ? (
+          <ConnectionDiagnostics connection={draft} language={language} />
+        ) : null}
+
         <div className="connection-actions">
           <button
             className="secondary-button"
@@ -1187,6 +1199,27 @@ function ApiKeyModal() {
           ) : null}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ConnectionDiagnostics({
+  connection,
+  language,
+}: {
+  connection: ModelConnection;
+  language: "en" | "zh";
+}) {
+  const items = connectionDiagnosticItems(language, connection);
+
+  return (
+    <div className="connection-diagnostics" role="note">
+      <strong>{language === "zh" ? "浏览器直连诊断" : "Browser connection check"}</strong>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1287,12 +1320,57 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
   const [headersText, setHeadersText] = useState(
     connection.customHeaders ? JSON.stringify(connection.customHeaders, null, 2) : ""
   );
+  const [pendingAction, setPendingAction] = useState<ConnectionAction>();
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedback>();
   const presets = useMemo(() => buildConnectionPresets(t), [t]);
   const selectedPreset = presets.find((preset) => preset.matches(draft));
+  const isWorking = Boolean(pendingAction);
+  const showConnectionDiagnostics = actionFeedback?.tone === "error";
+
+  useEffect(() => {
+    if (!pendingAction) return;
+
+    const message = connectionActionTimeoutMessage(language, pendingAction);
+    const timeoutId = window.setTimeout(() => {
+      setActionFeedback({ tone: "error", message });
+      setNotice(message);
+      setPendingAction(undefined);
+    }, CONNECTION_ACTION_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [language, pendingAction, setNotice]);
+
+  function actionLabel(action: ConnectionAction) {
+    const seconds = Math.round(CONNECTION_ACTION_TIMEOUT_MS / 1000);
+    if (language === "zh") {
+      return {
+        fetch: `正在获取模型（最多 ${seconds} 秒）...`,
+        test: `正在测试连接（最多 ${seconds} 秒）...`,
+        save: "正在保存...",
+      }[action];
+    }
+
+    return {
+      fetch: `Loading models, up to ${seconds}s...`,
+      test: `Testing connection, up to ${seconds}s...`,
+      save: "Saving...",
+    }[action];
+  }
+
+  function feedbackMessage(tone: ActionFeedback["tone"], message: string) {
+    setActionFeedback({ tone, message });
+    setNotice(message);
+  }
+
+  function cancelPendingAction() {
+    const message = connectionStoppedMessage(language);
+    setPendingAction(undefined);
+    feedbackMessage("error", message);
+  }
 
   function buildDraftFromForm(options: { requireKey?: boolean } = {}) {
     if (options.requireKey && !draft.apiKey?.trim()) {
-      setNotice(t("connections.keyRequired"));
+      feedbackMessage("error", t("connections.keyRequired"));
       return null;
     }
 
@@ -1309,7 +1387,7 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
 
       return { ...draft, customHeaders: parsed as Record<string, string> };
     } catch {
-      setNotice(t("connections.headersInvalid"));
+      feedbackMessage("error", t("connections.headersInvalid"));
       return null;
     }
   }
@@ -1317,28 +1395,109 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
   async function saveDraft() {
     const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
+    setPendingAction("save");
+    setActionFeedback({ tone: "neutral", message: actionLabel("save") });
+    try {
+      await saveConnection(nextDraft);
+      feedbackMessage(
+        "success",
+        language === "zh" ? "连接已保存。" : "Connection saved."
+      );
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "保存连接失败。"
+            : "Failed to save the connection."
+      );
+    } finally {
+      setPendingAction(undefined);
+    }
   }
 
   async function saveAndTestDraft() {
     const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
-    await testConnection(nextDraft.id);
+    const targetError = validateConnectionTarget(language, nextDraft);
+    if (targetError) {
+      feedbackMessage("error", targetError);
+      return;
+    }
+    setPendingAction("test");
+    setActionFeedback({ tone: "neutral", message: actionLabel("test") });
+    try {
+      await saveConnection(nextDraft);
+      await withTimeout(
+        testConnection(nextDraft.id),
+        CONNECTION_ACTION_TIMEOUT_MS,
+        connectionActionTimeoutMessage(language, "test")
+      );
+      const testedConnection = useAppStore
+        .getState()
+        .connections.find((item) => item.id === nextDraft.id);
+      const message =
+        testedConnection?.statusMessage ??
+        (language === "zh" ? "连接测试已完成。" : "Connection test finished.");
+      feedbackMessage(testedConnection?.status === "failed" ? "error" : "success", message);
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "连接测试失败。"
+            : "Connection test failed."
+      );
+    } finally {
+      setPendingAction(undefined);
+    }
   }
 
   async function fetchDraftModels() {
     const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
-    const updatedConnection = await fetchModels(nextDraft);
-    if (updatedConnection) {
-      setDraft(updatedConnection);
-      setHeadersText(
-        updatedConnection.customHeaders
-          ? JSON.stringify(updatedConnection.customHeaders, null, 2)
-          : ""
+    const targetError = validateConnectionTarget(language, nextDraft);
+    if (targetError) {
+      feedbackMessage("error", targetError);
+      return;
+    }
+    setPendingAction("fetch");
+    setActionFeedback({ tone: "neutral", message: actionLabel("fetch") });
+    try {
+      await saveConnection(nextDraft);
+      const updatedConnection = await withTimeout(
+        fetchModels(nextDraft),
+        CONNECTION_ACTION_TIMEOUT_MS,
+        connectionActionTimeoutMessage(language, "fetch")
       );
+      if (updatedConnection) {
+        setDraft(updatedConnection);
+        setHeadersText(
+          updatedConnection.customHeaders
+            ? JSON.stringify(updatedConnection.customHeaders, null, 2)
+            : ""
+        );
+        feedbackMessage("success", updatedConnection.statusMessage ?? t("connections.modelsLoaded"));
+        return;
+      }
+      feedbackMessage(
+        "error",
+        useAppStore.getState().notice ??
+          (language === "zh" ? "未能获取模型列表。" : "Could not load the model list.")
+      );
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "未能获取模型列表。"
+            : "Could not load the model list."
+      );
+    } finally {
+      setPendingAction(undefined);
     }
   }
 
@@ -1383,6 +1542,7 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
             {presets.map((preset) => (
               <button
                 className={clsx("provider-pill", selectedPreset?.id === preset.id && "selected")}
+                disabled={isWorking}
                 key={preset.id}
                 onClick={() => applyProviderPreset(preset)}
               >
@@ -1493,20 +1653,39 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
             <p className="connection-hint">{t("connections.corsHint")}</p>
           </details>
 
+          {actionFeedback ? (
+            <p
+              aria-live="polite"
+              className={clsx("connection-action-feedback", actionFeedback.tone)}
+              role={actionFeedback.tone === "error" ? "alert" : "status"}
+            >
+              {actionFeedback.message}
+            </p>
+          ) : null}
+
+          {showConnectionDiagnostics ? (
+            <ConnectionDiagnostics connection={draft} language={language} />
+          ) : null}
+
           <div className="connection-actions">
-            <button className="secondary-button" onClick={() => void saveDraft()}>
+            <button className="secondary-button" disabled={isWorking} onClick={() => void saveDraft()}>
               <Save size={16} />
-              <span>{t("connections.save")}</span>
+              <span>{pendingAction === "save" ? actionLabel("save") : t("connections.save")}</span>
             </button>
-            <button className="secondary-button" onClick={() => void fetchDraftModels()}>
+            <button className="secondary-button" disabled={isWorking} onClick={() => void fetchDraftModels()}>
               <Bot size={16} />
-              <span>{t("connections.fetchModels")}</span>
+              <span>{pendingAction === "fetch" ? actionLabel("fetch") : t("connections.fetchModels")}</span>
             </button>
-            <button className="primary-button" onClick={() => void saveAndTestDraft()}>
+            <button className="primary-button" disabled={isWorking} onClick={() => void saveAndTestDraft()}>
               <ShieldCheck size={16} />
-              <span>{t("connections.test")}</span>
+              <span>{pendingAction === "test" ? actionLabel("test") : t("connections.test")}</span>
             </button>
-            <button className="danger-button" onClick={() => void deleteConnection(draft.id)}>
+            {isWorking ? (
+              <button className="secondary-button" onClick={cancelPendingAction}>
+                <span>{language === "zh" ? "停止等待" : "Stop waiting"}</span>
+              </button>
+            ) : null}
+            <button className="danger-button" disabled={isWorking} onClick={() => void deleteConnection(draft.id)}>
               <Trash2 size={16} />
               <span>{t("connections.delete")}</span>
             </button>
@@ -1810,18 +1989,160 @@ function statusText(
   return t("common.untested");
 }
 
+function validateConnectionTarget(language: "en" | "zh", connection: ModelConnection) {
+  const url = parseConnectionUrl(connection.baseUrl);
+  if (!url) {
+    return language === "zh"
+      ? "Base URL 无效。请填写完整地址，例如 https://your-relay.example.com/v1。"
+      : "Invalid Base URL. Enter a full URL such as https://your-relay.example.com/v1.";
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return language === "zh"
+      ? "Base URL 只支持 http:// 或 https://。"
+      : "Base URL must start with http:// or https://.";
+  }
+
+  if (isMixedContentBlocked(url)) {
+    return language === "zh"
+      ? "当前页面是 HTTPS，但 Base URL 是 HTTP。浏览器会拦截这类请求，请改用 HTTPS 中转地址，或在本地页面测试本地服务。"
+      : "This page is HTTPS, but the Base URL is HTTP. Browsers block that request. Use an HTTPS relay, or test local services from a local page.";
+  }
+
+  return undefined;
+}
+
+function connectionDiagnosticItems(language: "en" | "zh", connection: ModelConnection) {
+  const url = parseConnectionUrl(connection.baseUrl);
+  const items =
+    language === "zh"
+      ? [
+          "GitHub Pages 只是静态页面，不会替你转发 API 请求；Base URL 必须允许当前网页跨域调用。",
+          "如果服务商或中转不支持浏览器 CORS，前端会显示超时或 Network/CORS 失败，即使 Key 本身是正确的。",
+          "解决方式：换成支持浏览器跨域的中转地址，或使用自己的 Cloudflare Worker、Vercel/Netlify Function、本地代理。",
+        ]
+      : [
+          "GitHub Pages is a static page and does not proxy API requests; the Base URL must allow browser CORS from this site.",
+          "If the provider or relay does not allow browser CORS, the frontend may time out or report Network/CORS even when the key is correct.",
+          "Fix: use a CORS-enabled relay URL, or your own Cloudflare Worker, Vercel/Netlify Function, or local proxy.",
+        ];
+
+  if (!url) {
+    return [
+      language === "zh"
+        ? "当前 Base URL 不是完整 URL。请填写包含协议的地址，例如 https://api.example.com/v1。"
+        : "The current Base URL is not a complete URL. Include the protocol, for example https://api.example.com/v1.",
+      ...items,
+    ];
+  }
+
+  if (isMixedContentBlocked(url)) {
+    return [
+      language === "zh"
+        ? "当前页面是 HTTPS，但 Base URL 是 HTTP；这是浏览器安全限制，不是 API Key 错误。"
+        : "This page is HTTPS but the Base URL is HTTP; that is a browser security block, not an API-key error.",
+      ...items,
+    ];
+  }
+
+  if (connection.protocol === "openai-chat-completions") {
+    return [
+      language === "zh"
+        ? "OpenAI-compatible 协议会调用 /chat/completions 和 /models；很多中转使用 https://.../v1 作为 Base URL。"
+        : "OpenAI-compatible calls /chat/completions and /models; many relays use https://.../v1 as the Base URL.",
+      ...items,
+    ];
+  }
+
+  if (connection.protocol === "openai-responses") {
+    return [
+      language === "zh"
+        ? "OpenAI Responses 协议会调用 /responses 和 /models；请确认中转明确支持 Responses API。"
+        : "OpenAI Responses calls /responses and /models; confirm that the relay explicitly supports the Responses API.",
+      ...items,
+    ];
+  }
+
+  if (connection.protocol === "anthropic-messages") {
+    return [
+      language === "zh"
+        ? "Anthropic Messages 协议会调用 /messages 和 /models；若直连失败，请使用支持 Anthropic Headers 与 CORS 的中转。"
+        : "Anthropic Messages calls /messages and /models; if direct calls fail, use a relay that supports Anthropic headers and CORS.",
+      ...items,
+    ];
+  }
+
+  if (connection.protocol === "gemini") {
+    return [
+      language === "zh"
+        ? "Gemini 协议会调用 generateContent 与 models；请确认 Base URL、API Key 类型和浏览器跨域策略匹配。"
+        : "Gemini calls generateContent and models; confirm that Base URL, key type, and browser CORS policy match.",
+      ...items,
+    ];
+  }
+
+  if (connection.protocol === "ollama") {
+    return [
+      language === "zh"
+        ? "Ollama / LM Studio 本地调用通常需要本地页面或本地服务允许跨域，例如配置 OLLAMA_ORIGINS。"
+        : "Ollama / LM Studio local calls usually need a local page or a local service that allows CORS, such as OLLAMA_ORIGINS.",
+      ...items,
+    ];
+  }
+
+  return items;
+}
+
+function parseConnectionUrl(baseUrl: string) {
+  try {
+    return new URL(baseUrl.trim());
+  } catch {
+    return undefined;
+  }
+}
+
+function isMixedContentBlocked(url: URL) {
+  return (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    url.protocol === "http:" &&
+    !isLocalHostname(url.hostname)
+  );
+}
+
+function isLocalHostname(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "0.0.0.0" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
+function connectionStoppedMessage(language: "en" | "zh") {
+  return language === "zh"
+    ? "已停止等待。若你在 GitHub Pages 上直连 API，请确认 Base URL 支持浏览器 CORS；不支持时需要中转、Worker、Function 或本地代理。"
+    : "Stopped waiting. If this GitHub Pages site calls the API directly, confirm the Base URL supports browser CORS; otherwise use a relay, Worker, Function, or local proxy.";
+}
+
 function connectionActionTimeoutMessage(language: "en" | "zh", action: ConnectionAction) {
   if (language === "zh") {
     return {
-      fetch: "获取模型超时。请检查 Base URL、协议、CORS 或中转服务状态。",
-      test: "测试连接超时。请检查 Base URL、协议、CORS 或中转服务状态。",
+      fetch:
+        "获取模型超时。浏览器没有在 10 秒内收到响应；请检查 Base URL、连接协议、CORS 设置或中转服务状态。",
+      test:
+        "测试连接超时。浏览器没有在 10 秒内收到响应；请检查 Base URL、连接协议、CORS 设置或中转服务状态。",
       save: "保存连接超时，请重试。",
     }[action];
   }
 
   return {
-    fetch: "Loading models timed out. Check the Base URL, protocol, CORS, or relay status.",
-    test: "Connection test timed out. Check the Base URL, protocol, CORS, or relay status.",
+    fetch:
+      "Loading models timed out. The browser did not receive a response within 10 seconds; check the Base URL, protocol, CORS settings, or relay status.",
+    test:
+      "Connection test timed out. The browser did not receive a response within 10 seconds; check the Base URL, protocol, CORS settings, or relay status.",
     save: "Saving the connection timed out. Try again.",
   }[action];
 }

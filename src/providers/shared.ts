@@ -28,7 +28,7 @@ export function extractErrorMessage(json: unknown, status: number) {
 }
 
 export function networkErrorMessage(scope = "request") {
-  return `Network or CORS blocked the ${scope}.`;
+  return `The browser blocked the ${scope} because of network access, CORS, or mixed-content rules. Use a Base URL that allows browser CORS, or route requests through your own relay, Worker, Function, or local proxy.`;
 }
 
 export function timeoutErrorMessage(scope = "request", timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
