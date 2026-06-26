@@ -35,6 +35,12 @@ import type {
   SessionStage,
 } from "./types";
 
+type ConnectionAction = "fetch" | "test" | "save";
+type ActionFeedback = {
+  tone: "neutral" | "success" | "error";
+  message: string;
+};
+
 const suggestedQuestions = {
   en: [
     "Should we launch this product as open source?",
@@ -813,12 +819,36 @@ function ApiKeyModal() {
   const [headersText, setHeadersText] = useState(
     draft.customHeaders ? JSON.stringify(draft.customHeaders, null, 2) : ""
   );
+  const [pendingAction, setPendingAction] = useState<ConnectionAction>();
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedback>();
   const presets = useMemo(() => buildConnectionPresets(t), [t]);
   const selectedPreset = presets.find((preset) => preset.matches(draft));
+  const isWorking = Boolean(pendingAction);
+
+  function actionLabel(action: ConnectionAction) {
+    if (language === "zh") {
+      return {
+        fetch: "正在获取模型...",
+        test: "正在测试连接...",
+        save: "正在保存...",
+      }[action];
+    }
+
+    return {
+      fetch: "Loading models...",
+      test: "Testing connection...",
+      save: "Saving...",
+    }[action];
+  }
+
+  function feedbackMessage(tone: ActionFeedback["tone"], message: string) {
+    setActionFeedback({ tone, message });
+    setNotice(message);
+  }
 
   function buildDraftFromForm() {
     if (!draft.apiKey?.trim()) {
-      setNotice(t("connections.keyRequired"));
+      feedbackMessage("error", t("connections.keyRequired"));
       return null;
     }
 
@@ -835,7 +865,7 @@ function ApiKeyModal() {
 
       return { ...draft, customHeaders: parsed as Record<string, string> };
     } catch {
-      setNotice(t("connections.headersInvalid"));
+      feedbackMessage("error", t("connections.headersInvalid"));
       return null;
     }
   }
@@ -843,33 +873,92 @@ function ApiKeyModal() {
   async function saveDraft() {
     const nextDraft = buildDraftFromForm();
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
-    closeApiKeyModal();
-    if (view === "home" && topic.trim()) {
-      navigate("brief");
+    setPendingAction("save");
+    setActionFeedback({ tone: "neutral", message: actionLabel("save") });
+    try {
+      await saveConnection(nextDraft);
+      closeApiKeyModal();
+      if (view === "home" && topic.trim()) {
+        navigate("brief");
+      }
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "保存连接失败。"
+            : "Failed to save the connection."
+      );
+    } finally {
+      setPendingAction(undefined);
     }
   }
 
   async function fetchDraftModels() {
     const nextDraft = buildDraftFromForm();
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
-    const updatedConnection = await fetchModels(nextDraft);
-    if (updatedConnection) {
-      setDraft(updatedConnection);
-      setHeadersText(
-        updatedConnection.customHeaders
-          ? JSON.stringify(updatedConnection.customHeaders, null, 2)
-          : ""
+    setPendingAction("fetch");
+    setActionFeedback({ tone: "neutral", message: actionLabel("fetch") });
+    try {
+      await saveConnection(nextDraft);
+      const updatedConnection = await fetchModels(nextDraft);
+      if (updatedConnection) {
+        setDraft(updatedConnection);
+        setHeadersText(
+          updatedConnection.customHeaders
+            ? JSON.stringify(updatedConnection.customHeaders, null, 2)
+            : ""
+        );
+        feedbackMessage("success", updatedConnection.statusMessage ?? t("connections.modelsLoaded"));
+        return;
+      }
+      feedbackMessage(
+        "error",
+        useAppStore.getState().notice ??
+          (language === "zh" ? "未能获取模型列表。" : "Could not load the model list.")
       );
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "未能获取模型列表。"
+            : "Could not load the model list."
+      );
+    } finally {
+      setPendingAction(undefined);
     }
   }
 
   async function saveAndTestDraft() {
     const nextDraft = buildDraftFromForm();
     if (!nextDraft) return;
-    await saveConnection(nextDraft);
-    await testConnection(nextDraft.id);
+    setPendingAction("test");
+    setActionFeedback({ tone: "neutral", message: actionLabel("test") });
+    try {
+      await saveConnection(nextDraft);
+      await testConnection(nextDraft.id);
+      const testedConnection = useAppStore
+        .getState()
+        .connections.find((connection) => connection.id === nextDraft.id);
+      const message =
+        testedConnection?.statusMessage ??
+        (language === "zh" ? "连接测试已完成。" : "Connection test finished.");
+      feedbackMessage(testedConnection?.status === "failed" ? "error" : "success", message);
+    } catch (error) {
+      feedbackMessage(
+        "error",
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "连接测试失败。"
+            : "Connection test failed."
+      );
+    } finally {
+      setPendingAction(undefined);
+    }
   }
 
   function applyProviderPreset(preset: ConnectionPreset) {
@@ -908,6 +997,7 @@ function ApiKeyModal() {
           {presets.map((preset) => (
             <button
               className={clsx("provider-pill", selectedPreset?.id === preset.id && "selected")}
+              disabled={isWorking}
               key={preset.id}
               onClick={() => applyProviderPreset(preset)}
             >
@@ -1018,18 +1108,40 @@ function ApiKeyModal() {
           </label>
         </details>
 
+        {actionFeedback ? (
+          <p
+            aria-live="polite"
+            className={clsx("connection-action-feedback", actionFeedback.tone)}
+            role={actionFeedback.tone === "error" ? "alert" : "status"}
+          >
+            {actionFeedback.message}
+          </p>
+        ) : null}
+
         <div className="connection-actions">
-          <button className="secondary-button" onClick={() => void fetchDraftModels()}>
+          <button
+            className="secondary-button"
+            disabled={isWorking}
+            onClick={() => void fetchDraftModels()}
+          >
             <Bot size={16} />
-            <span>{t("connections.fetchModels")}</span>
+            <span>{pendingAction === "fetch" ? actionLabel("fetch") : t("connections.fetchModels")}</span>
           </button>
-          <button className="secondary-button" onClick={() => void saveAndTestDraft()}>
+          <button
+            className="secondary-button"
+            disabled={isWorking}
+            onClick={() => void saveAndTestDraft()}
+          >
             <ShieldCheck size={16} />
-            <span>{t("connections.test")}</span>
+            <span>{pendingAction === "test" ? actionLabel("test") : t("connections.test")}</span>
           </button>
-          <button className="primary-button" onClick={() => void saveDraft()}>
+          <button
+            className="primary-button"
+            disabled={isWorking}
+            onClick={() => void saveDraft()}
+          >
             <Save size={16} />
-            <span>{t("connections.save")}</span>
+            <span>{pendingAction === "save" ? actionLabel("save") : t("connections.save")}</span>
           </button>
         </div>
       </section>

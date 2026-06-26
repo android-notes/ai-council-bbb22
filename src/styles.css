@@ -133,6 +133,16 @@ body {
   @apply inline-flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition;
 }
 
+.secondary-button:disabled,
+.primary-button:disabled,
+.danger-button:disabled,
+.provider-pill:disabled {
+  cursor: progress;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
+}
+
 .nav-button,
 .icon-text-button,
 .secondary-button {
@@ -689,6 +699,25 @@ body {
 
 .connection-actions {
   @apply grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap;
+}
+
+.connection-action-feedback {
+  @apply rounded-md px-3 py-2 text-sm font-bold leading-6;
+  border: 1px solid rgba(18, 16, 20, 0.1);
+  background: rgba(255, 255, 255, 0.64);
+  color: rgba(18, 16, 20, 0.68);
+}
+
+.connection-action-feedback.success {
+  border-color: rgba(38, 117, 79, 0.24);
+  background: rgba(223, 247, 230, 0.8);
+  color: #16613b;
+}
+
+.connection-action-feedback.error {
+  border-color: rgba(180, 42, 42, 0.24);
+  background: rgba(255, 231, 231, 0.82);
+  color: #9f1f1f;
 }
 
 .modal-scrim {
