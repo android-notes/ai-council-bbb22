@@ -1448,3 +1448,398 @@ body {
     padding: 1rem;
   }
 }
+
+/* ScrewFast-inspired industrial theme: neutral surfaces, amber CTAs, hard working panels. */
+:root {
+  color-scheme: light;
+  background: #e5e5e5;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(250, 204, 21, 0.16), transparent 260px),
+    #e5e5e5;
+}
+
+.app-shell {
+  color: #262626;
+  background: transparent;
+}
+
+.app-frame::before {
+  display: none;
+}
+
+.app-header {
+  @apply mt-4 px-4 py-3;
+  border: 1px solid rgba(250, 204, 21, 0.34);
+  border-radius: 36px;
+  color: #262626;
+  background: rgba(254, 252, 232, 0.72);
+  box-shadow: 0 18px 45px rgba(38, 38, 38, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.app-footer {
+  border-top-color: rgba(115, 115, 115, 0.2);
+  color: #737373;
+}
+
+.brand-lockup {
+  color: #262626;
+}
+
+.brand-mark {
+  border-color: transparent;
+  color: #262626;
+  background: #facc15;
+  box-shadow: none;
+}
+
+.brand-lockup .text-stone-500,
+.app-shell .text-stone-500 {
+  color: #737373;
+}
+
+.app-shell .text-stone-600,
+.app-shell .text-stone-700 {
+  color: #525252;
+}
+
+.app-shell .text-stone-800,
+.app-shell .text-stone-900,
+.app-shell .text-stone-950 {
+  color: #262626;
+}
+
+.app-shell .text-cyan-700,
+.app-shell .text-cyan-800,
+.app-shell .text-cyan-900,
+.app-shell .text-cyan-950 {
+  color: #ea580c;
+}
+
+.nav-button,
+.icon-text-button,
+.secondary-button {
+  border-color: rgba(212, 212, 212, 0.95);
+  color: #525252;
+  background: rgba(245, 245, 245, 0.86);
+  box-shadow: none;
+}
+
+.nav-button:hover,
+.icon-text-button:hover,
+.secondary-button:hover {
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(38, 38, 38, 0.08);
+}
+
+.nav-button.active {
+  border-color: transparent;
+  color: #262626;
+  background: #facc15;
+  box-shadow: none;
+}
+
+.primary-button {
+  border-color: transparent;
+  color: #fafafa;
+  background: #fb923c;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  filter: none;
+  background: #f97316;
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.18);
+}
+
+.danger-button {
+  border-color: rgba(220, 38, 38, 0.22);
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.danger-button:hover {
+  background: #fecaca;
+}
+
+.surface-panel,
+.progressive-panel,
+.lineup-hero,
+.lineup-advanced,
+.role-card,
+.message-row,
+.result-export,
+.history-row {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #262626;
+  background: #f5f5f5;
+  box-shadow: 0 18px 45px rgba(38, 38, 38, 0.08);
+}
+
+.connections-screen {
+  color: #262626;
+}
+
+.connections-hero {
+  border-color: transparent;
+  color: #262626;
+  background:
+    linear-gradient(90deg, rgba(250, 204, 21, 0.18), transparent 42%),
+    #f5f5f5;
+  box-shadow: 0 24px 60px rgba(38, 38, 38, 0.1);
+}
+
+.connections-hero::before {
+  opacity: 0.5;
+  background:
+    linear-gradient(90deg, rgba(163, 163, 163, 0.26) 1px, transparent 1px),
+    linear-gradient(rgba(163, 163, 163, 0.2) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.34), transparent 70%);
+}
+
+.connections-hero h1 {
+  color: #262626;
+}
+
+.connections-hero p:not(.connection-eyebrow) {
+  color: #525252;
+}
+
+.connection-command-grid > div,
+.connection-step-panel,
+.connection-details,
+.connection-target-preview,
+.sidecar-checklist {
+  border-color: rgba(212, 212, 212, 0.9);
+  background: #fafafa;
+}
+
+.connection-command-grid span,
+.connection-eyebrow,
+.sidecar-checklist span,
+.connection-target-preview span,
+.connection-diagnostics strong {
+  color: #eab308;
+}
+
+.connection-command-grid strong,
+.connection-step-copy h3,
+.connection-target-preview strong,
+.sidecar-checklist strong,
+.connection-card-header h2,
+.connection-sidecar h2 {
+  color: #262626;
+}
+
+.connection-command-grid small,
+.connection-step-copy p:not(.connection-eyebrow),
+.connection-target-preview small,
+.sidecar-checklist small,
+.connection-card-header p:not(.connection-eyebrow),
+.connection-sidecar p,
+.connection-hint {
+  color: #737373;
+}
+
+.connection-stats {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #262626;
+  background: #fafafa;
+}
+
+.connection-stats small,
+.sidecar-meter small {
+  color: #525252;
+}
+
+.timeline-pill {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #525252;
+  background: #f5f5f5;
+}
+
+.timeline-pill.connected {
+  border-color: rgba(22, 163, 74, 0.26);
+  color: #166534;
+  background: #dcfce7;
+}
+
+.timeline-pill.failed {
+  border-color: rgba(220, 38, 38, 0.26);
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.connection-sidecar,
+.connection-card,
+.api-key-modal,
+.connection-empty {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #262626;
+  background: #f5f5f5;
+  box-shadow: 0 24px 60px rgba(38, 38, 38, 0.1);
+}
+
+.sidecar-meter,
+.connection-step-index {
+  color: #262626;
+  background: #facc15;
+}
+
+.connection-status {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #525252;
+  background: #fafafa;
+}
+
+.connection-status.connected {
+  border-color: rgba(22, 163, 74, 0.26);
+  color: #166534;
+  background: #dcfce7;
+}
+
+.connection-status.failed {
+  border-color: rgba(220, 38, 38, 0.26);
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.provider-pill,
+.connection-step-tab {
+  border-color: rgba(212, 212, 212, 0.95);
+  color: #525252;
+  background: #fafafa;
+}
+
+.provider-pill small,
+.connection-step-tab small {
+  color: #737373;
+}
+
+.provider-pill:hover,
+.provider-pill.selected,
+.connection-step-tab.selected {
+  border-color: transparent;
+  color: #262626;
+  background: #facc15;
+  box-shadow: 0 10px 24px rgba(202, 138, 4, 0.14);
+}
+
+.connection-step-tab:hover {
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #262626;
+}
+
+.connection-card .field-label,
+.api-key-modal .field-label,
+.field-label {
+  color: #404040;
+}
+
+.connection-card .text-input,
+.api-key-modal .text-input,
+.text-input {
+  border-color: rgba(212, 212, 212, 0.95);
+  color: #262626;
+  background: #fafafa;
+}
+
+.connection-card .text-input::placeholder,
+.api-key-modal .text-input::placeholder,
+.text-input::placeholder {
+  color: #a3a3a3;
+}
+
+.connection-card .text-input:focus,
+.api-key-modal .text-input:focus,
+.text-input:focus {
+  border-color: rgba(250, 204, 21, 0.9);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28);
+}
+
+.connection-toggle {
+  color: #525252;
+}
+
+.connection-action-feedback,
+.connection-diagnostics {
+  border-color: rgba(212, 212, 212, 0.9);
+  color: #525252;
+  background: #fafafa;
+}
+
+.connection-action-feedback.success {
+  border-color: rgba(22, 163, 74, 0.26);
+  color: #166534;
+  background: #dcfce7;
+}
+
+.connection-action-feedback.error {
+  border-color: rgba(220, 38, 38, 0.26);
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.modal-scrim {
+  background: rgba(23, 23, 23, 0.68);
+  backdrop-filter: blur(12px);
+}
+
+.api-key-modal .connection-card-header p:not(.connection-eyebrow) {
+  color: #737373;
+}
+
+.connection-card .secondary-button,
+.api-key-modal .secondary-button {
+  border-color: rgba(212, 212, 212, 0.95);
+  color: #525252;
+  background: #fafafa;
+}
+
+.connection-card .secondary-button:hover,
+.api-key-modal .secondary-button:hover {
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #ea580c;
+  box-shadow: 0 8px 22px rgba(38, 38, 38, 0.08);
+}
+
+.connection-card .danger-button,
+.api-key-modal .danger-button {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.app-shell input[type="checkbox"] {
+  accent-color: #facc15;
+}
+
+.app-shell select option {
+  color: #262626;
+  background: #fafafa;
+}
+
+.app-shell .bg-stone-50,
+.app-shell .bg-white,
+.app-shell .bg-cyan-50,
+.app-shell .bg-red-50 {
+  background-color: #fafafa;
+}
+
+.app-shell .bg-cyan-600 {
+  background: #fb923c;
+}
+
+.app-shell .border-stone-100,
+.app-shell .border-stone-200,
+.app-shell .border-cyan-200,
+.app-shell .border-red-200 {
+  border-color: rgba(212, 212, 212, 0.9);
+}
