@@ -23,6 +23,7 @@ import clsx from "clsx";
 import { createTranslator, nextLanguage } from "./i18n";
 import { depthLimits, estimateCalls } from "./lib/depth";
 import { sessionToMarkdown } from "./lib/markdown";
+import { createId } from "./lib/id";
 import { useAppStore } from "./store/appStore";
 import type {
   AppMode,
@@ -62,6 +63,7 @@ export function App() {
   const view = useAppStore((state) => state.view);
   const language = useAppStore((state) => state.language);
   const notice = useAppStore((state) => state.notice);
+  const apiKeyModalOpen = useAppStore((state) => state.apiKeyModalOpen);
   const t = useMemo(() => createTranslator(language), [language]);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export function App() {
           {view === "connections" && <ConnectionsView />}
           {view === "history" && <HistoryView />}
         </main>
+        {apiKeyModalOpen ? <ApiKeyModal /> : null}
         <footer className="app-footer flex flex-col gap-2 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
           <span>AI Council</span>
           <span>{t("common.localOnly")}</span>
@@ -192,7 +195,7 @@ function HomeView() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-stone-900">{t("home.tryPreset")}</h2>
           <span className="ready-pill rounded-full px-2.5 py-1 text-xs font-medium">
-            Mock ready
+            API key required
           </span>
         </div>
         <div className="space-y-2">
@@ -324,6 +327,7 @@ function LineupView() {
   const navigate = useAppStore((state) => state.navigate);
   const t = useMemo(() => createTranslator(language), [language]);
   const diversity = calculateDiversityScore(roles);
+  const usableConnections = connections.filter(hasApiKeyForUi);
 
   return (
     <section>
@@ -394,7 +398,7 @@ function LineupView() {
                 value={role.modelConnectionId}
                 onChange={(event) => updateRole(role.id, { modelConnectionId: event.target.value })}
               >
-                {connections.map((connection) => (
+                {roleConnectionOptions(usableConnections, connections, role.modelConnectionId).map((connection) => (
                   <option key={connection.id} value={connection.id}>
                     {connection.name} / {connection.model}
                   </option>
@@ -658,14 +662,251 @@ function ResultView() {
   );
 }
 
+function ApiKeyModal() {
+  const language = useAppStore((state) => state.language);
+  const connections = useAppStore((state) => state.connections);
+  const saveConnection = useAppStore((state) => state.saveConnection);
+  const testConnection = useAppStore((state) => state.testConnection);
+  const fetchModels = useAppStore((state) => state.fetchModels);
+  const closeApiKeyModal = useAppStore((state) => state.closeApiKeyModal);
+  const setNotice = useAppStore((state) => state.setNotice);
+  const t = useMemo(() => createTranslator(language), [language]);
+  const [draft, setDraft] = useState<ModelConnection>(() =>
+    connections.find((connection) => !hasApiKeyForUi(connection)) ??
+    connections[0] ??
+    createDefaultConnection()
+  );
+  const [headersText, setHeadersText] = useState(
+    draft.customHeaders ? JSON.stringify(draft.customHeaders, null, 2) : ""
+  );
+  const presets = useMemo(() => buildConnectionPresets(t), [t]);
+  const selectedPreset = presets.find((preset) => preset.matches(draft));
+
+  function buildDraftFromForm() {
+    if (!draft.apiKey?.trim()) {
+      setNotice(t("connections.keyRequired"));
+      return null;
+    }
+
+    const trimmed = headersText.trim();
+    if (!trimmed) {
+      return { ...draft, customHeaders: undefined };
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Headers must be an object.");
+      }
+
+      return { ...draft, customHeaders: parsed as Record<string, string> };
+    } catch {
+      setNotice(t("connections.headersInvalid"));
+      return null;
+    }
+  }
+
+  async function saveDraft() {
+    const nextDraft = buildDraftFromForm();
+    if (!nextDraft) return;
+    await saveConnection(nextDraft);
+    closeApiKeyModal();
+  }
+
+  async function fetchDraftModels() {
+    const nextDraft = buildDraftFromForm();
+    if (!nextDraft) return;
+    await saveConnection(nextDraft);
+    const updatedConnection = await fetchModels(nextDraft);
+    if (updatedConnection) {
+      setDraft(updatedConnection);
+      setHeadersText(
+        updatedConnection.customHeaders
+          ? JSON.stringify(updatedConnection.customHeaders, null, 2)
+          : ""
+      );
+    }
+  }
+
+  async function saveAndTestDraft() {
+    const nextDraft = buildDraftFromForm();
+    if (!nextDraft) return;
+    await saveConnection(nextDraft);
+    await testConnection(nextDraft.id);
+  }
+
+  function applyProviderPreset(preset: ConnectionPreset) {
+    setDraft({
+      ...draft,
+      name: preset.name,
+      protocol: preset.protocol,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      availableModels: preset.availableModels,
+      customHeaders: undefined,
+    });
+    setHeadersText(preset.headersText ?? "");
+  }
+
+  return (
+    <div className="modal-scrim" role="presentation">
+      <section
+        aria-labelledby="api-key-modal-title"
+        aria-modal="true"
+        className="api-key-modal"
+        role="dialog"
+      >
+        <div className="connection-card-header">
+          <div>
+            <p className="connection-eyebrow">AI Council</p>
+            <h2 id="api-key-modal-title">{t("connections.requiredTitle")}</h2>
+            <p>{t("connections.requiredBody")}</p>
+          </div>
+          <button className="secondary-button" onClick={closeApiKeyModal}>
+            <span>{t("connections.closeSetup")}</span>
+          </button>
+        </div>
+
+        <div className="provider-dock" aria-label={t("connections.presets")}>
+          {presets.map((preset) => (
+            <button
+              className={clsx("provider-pill", selectedPreset?.id === preset.id && "selected")}
+              key={preset.id}
+              onClick={() => applyProviderPreset(preset)}
+            >
+              <span>{preset.label}</span>
+              <small>{preset.shortLabel}</small>
+            </button>
+          ))}
+        </div>
+
+        <div className="connection-form-grid">
+          <label className="field-label compact">
+            <span>{t("connections.name")}</span>
+            <input className="text-input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+          </label>
+          <label className="field-label compact">
+            <span>{t("connections.model")}</span>
+            {draft.availableModels && draft.availableModels.length > 0 ? (
+              <select
+                className="text-input"
+                value={draft.model}
+                onChange={(event) => setDraft({ ...draft, model: event.target.value })}
+              >
+                {draft.availableModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input className="text-input" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} />
+            )}
+          </label>
+          <label className="field-label compact connection-api-key">
+            <span>{t("connections.apiKey")}</span>
+            <input
+              autoFocus
+              className="text-input"
+              type="password"
+              value={draft.apiKey ?? ""}
+              onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
+            />
+          </label>
+        </div>
+
+        <details className="connection-details" open>
+          <summary>
+            <span>{language === "zh" ? "Endpoint 与协议" : "Endpoint and protocol"}</span>
+            <ChevronRight size={16} />
+          </summary>
+          <div className="connection-details-grid">
+            <label className="field-label compact">
+              <span>{t("connections.protocol")}</span>
+              <select
+                className="text-input"
+                value={draft.protocol}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    availableModels: undefined,
+                    protocol: event.target.value as ModelProtocol,
+                  })
+                }
+              >
+                <option value="openai-chat-completions">OpenAI-compatible Chat Completions</option>
+                <option value="openai-responses">OpenAI Responses</option>
+                <option value="anthropic-messages">Anthropic Messages</option>
+                <option value="gemini">Gemini</option>
+                <option value="ollama">Ollama / LM Studio</option>
+                <option value="custom">Custom JSON</option>
+              </select>
+            </label>
+            <label className="field-label compact">
+              <span>{t("connections.baseUrl")}</span>
+              <input className="text-input" value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} />
+            </label>
+          </div>
+        </details>
+
+        <details className="connection-details">
+          <summary>
+            <span>{language === "zh" ? "Headers 与本地保存" : "Headers and local storage"}</span>
+            <ChevronRight size={16} />
+          </summary>
+          <label className="field-label compact">
+            <span>{t("connections.headers")}</span>
+            <textarea
+              className="text-input min-h-24 resize-y font-mono text-xs"
+              value={headersText}
+              onChange={(event) => setHeadersText(event.target.value)}
+              placeholder='{"HTTP-Referer":"https://example.com"}'
+            />
+            <span className="text-xs font-normal leading-5 text-stone-500">
+              {t("connections.headersHelp")}
+            </span>
+          </label>
+          <label className="connection-toggle">
+            <input
+              type="checkbox"
+              checked={draft.secretStorage === "local"}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  secretStorage: event.target.checked ? "local" : "session",
+                })
+              }
+            />
+            <span>{t("connections.storeKey")}</span>
+          </label>
+        </details>
+
+        <div className="connection-actions">
+          <button className="secondary-button" onClick={() => void fetchDraftModels()}>
+            <Bot size={16} />
+            <span>{t("connections.fetchModels")}</span>
+          </button>
+          <button className="secondary-button" onClick={() => void saveAndTestDraft()}>
+            <ShieldCheck size={16} />
+            <span>{t("connections.test")}</span>
+          </button>
+          <button className="primary-button" onClick={() => void saveDraft()}>
+            <Save size={16} />
+            <span>{t("connections.save")}</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ConnectionsView() {
   const language = useAppStore((state) => state.language);
   const connections = useAppStore((state) => state.connections);
   const addBlankConnection = useAppStore((state) => state.addBlankConnection);
   const clearAllLocalData = useAppStore((state) => state.clearAllLocalData);
   const t = useMemo(() => createTranslator(language), [language]);
-  const liveConnections = connections.filter((connection) => connection.protocol !== "mock");
-  const connectedCount = connections.filter((connection) => connection.status === "connected").length;
+  const configuredCount = connections.filter(hasApiKeyForUi).length;
 
   return (
     <section className="connections-screen">
@@ -676,8 +917,8 @@ function ConnectionsView() {
           <p>{t("connections.subtitle")}</p>
         </div>
         <div className="connection-stats">
-          <span>{connectedCount}/{connections.length}</span>
-          <small>{language === "zh" ? "可用席位" : "ready seats"}</small>
+          <span>{configuredCount}/{connections.length}</span>
+          <small>{language === "zh" ? "已配置 Key" : "keys set"}</small>
         </div>
         <button className="primary-button" onClick={addBlankConnection}>
           <Plus size={16} />
@@ -694,9 +935,20 @@ function ConnectionsView() {
       </div>
       <div className="connections-layout">
         <div className="grid min-w-0 gap-4">
-          {connections.map((connection) => (
-            <ConnectionCard key={connection.id} connection={connection} />
-          ))}
+          {connections.length > 0 ? (
+            connections.map((connection) => (
+              <ConnectionCard key={connection.id} connection={connection} />
+            ))
+          ) : (
+            <div className="connection-empty">
+              <h2>{t("connections.emptyTitle")}</h2>
+              <p>{t("connections.emptyBody")}</p>
+              <button className="primary-button" onClick={addBlankConnection}>
+                <Plus size={16} />
+                <span>{t("connections.add")}</span>
+              </button>
+            </div>
+          )}
         </div>
         <aside className="connection-sidecar">
           <div>
@@ -709,8 +961,8 @@ function ConnectionsView() {
             </p>
           </div>
           <div className="sidecar-meter">
-            <span>{liveConnections.length}</span>
-            <small>{language === "zh" ? "自定义连接" : "custom connections"}</small>
+            <span>{connections.length}</span>
+            <small>{language === "zh" ? "正式连接" : "real connections"}</small>
           </div>
         </aside>
       </div>
@@ -744,11 +996,15 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
   const [headersText, setHeadersText] = useState(
     connection.customHeaders ? JSON.stringify(connection.customHeaders, null, 2) : ""
   );
-  const isMock = draft.protocol === "mock";
   const presets = useMemo(() => buildConnectionPresets(t), [t]);
   const selectedPreset = presets.find((preset) => preset.matches(draft));
 
-  function buildDraftFromForm() {
+  function buildDraftFromForm(options: { requireKey?: boolean } = {}) {
+    if (options.requireKey && !draft.apiKey?.trim()) {
+      setNotice(t("connections.keyRequired"));
+      return null;
+    }
+
     const trimmed = headersText.trim();
     if (!trimmed) {
       return { ...draft, customHeaders: undefined };
@@ -768,20 +1024,20 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
   }
 
   async function saveDraft() {
-    const nextDraft = buildDraftFromForm();
+    const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
     await saveConnection(nextDraft);
   }
 
   async function saveAndTestDraft() {
-    const nextDraft = buildDraftFromForm();
+    const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
     await saveConnection(nextDraft);
     await testConnection(nextDraft.id);
   }
 
   async function fetchDraftModels() {
-    const nextDraft = buildDraftFromForm();
+    const nextDraft = buildDraftFromForm({ requireKey: true });
     if (!nextDraft) return;
     await saveConnection(nextDraft);
     const updatedConnection = await fetchModels(nextDraft);
@@ -831,13 +1087,7 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
           <span>{connection.statusMessage ?? statusText(connection.status, t)}</span>
         </span>
       </div>
-      {isMock ? (
-        <div className="mock-connection-panel">
-          <Sparkles size={18} />
-          <p>{t("connections.mockReady")}</p>
-        </div>
-      ) : (
-        <div className="connection-flow">
+      <div className="connection-flow">
           <div className="provider-dock" aria-label={t("connections.presets")}>
             {presets.map((preset) => (
               <button
@@ -970,8 +1220,7 @@ function ConnectionCard({ connection }: { connection: ModelConnection }) {
               <span>{t("connections.delete")}</span>
             </button>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -981,13 +1230,46 @@ type ConnectionPreset = {
   label: string;
   shortLabel: string;
   name: string;
-  protocol: Exclude<ModelProtocol, "mock">;
+  protocol: ModelProtocol;
   baseUrl: string;
   model: string;
   availableModels?: string[];
   headersText?: string;
   matches: (connection: ModelConnection) => boolean;
 };
+
+function createDefaultConnection(): ModelConnection {
+  return {
+    id: createId("connection"),
+    name: "OpenAI Official",
+    protocol: "openai-chat-completions",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    availableModels: [],
+    secretStorage: "session",
+    status: "untested",
+  };
+}
+
+function hasApiKeyForUi(connection: ModelConnection) {
+  return Boolean(connection.apiKey?.trim());
+}
+
+function roleConnectionOptions(
+  usableConnections: ModelConnection[],
+  allConnections: ModelConnection[],
+  selectedConnectionId: string
+) {
+  const selectedConnection = allConnections.find((connection) => connection.id === selectedConnectionId);
+  if (
+    selectedConnection &&
+    !usableConnections.some((connection) => connection.id === selectedConnection.id)
+  ) {
+    return [...usableConnections, selectedConnection];
+  }
+
+  return usableConnections;
+}
 
 function buildConnectionPresets(
   t: ReturnType<typeof createTranslator>
@@ -1098,7 +1380,6 @@ function buildConnectionPresets(
 
 function protocolLabel(protocol: ModelProtocol) {
   const labels: Record<ModelProtocol, string> = {
-    mock: "Mock",
     "openai-chat-completions": "Chat Completions",
     "openai-responses": "Responses",
     "anthropic-messages": "Anthropic Messages",
@@ -1326,10 +1607,10 @@ function calculateDiversityScore(roles: { modelConnectionId: string }[]) {
   }
 
   const uniqueSeats = new Set(roles.map((role) => role.modelConnectionId)).size;
-  const nonMockSeats = roles.filter((role) => role.modelConnectionId !== "mock").length;
+  const configuredSeats = roles.filter((role) => role.modelConnectionId).length;
   const base = 28;
   const spread = Math.min(42, uniqueSeats * 14);
-  const realModelBoost = Math.min(30, nonMockSeats * 8);
+  const realModelBoost = Math.min(30, configuredSeats * 8);
   return Math.min(100, base + spread + realModelBoost);
 }
 

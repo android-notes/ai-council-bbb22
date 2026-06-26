@@ -49,8 +49,7 @@ Before publishing, confirm GitHub Pages is set to **GitHub Actions** in the repo
 ## Usage
 
 1. Open the app.
-2. Try the mock flow without any API key.
-3. Add a model connection when you want real model calls.
+2. Add a model connection with your own API key before starting.
    - OpenAI official: `https://api.openai.com/v1`
    - DeepSeek official: `https://api.deepseek.com`
    - Anthropic: `https://api.anthropic.com/v1`
@@ -59,18 +58,17 @@ Before publishing, confirm GitHub Pages is set to **GitHub Actions** in the repo
    - OpenRouter or compatible relay: `https://openrouter.ai/api/v1`
    - Custom relay or self-hosted proxy: use its OpenAI-compatible `/v1` base URL.
    - Custom JSON endpoint: provide the exact POST endpoint and return a common text field such as `content`, `text`, `response`, `output_text`, `choices`, or Gemini-style `candidates`.
-4. Click **Fetch models** to load model IDs when the endpoint supports it.
-5. If the browser blocks CORS, use your own Worker, Function, local proxy, or compatible relay endpoint.
-6. Build a council lineup. Once a real model connection is connected or configured with a key, new roles default to that real seat instead of Mock.
-7. Export the result as a poster, Markdown, JSON, share title, or short-video script.
-8. Keep everything local unless you manually share an exported asset.
+3. Click **Fetch models** to load model IDs when the endpoint supports it.
+4. If the browser blocks CORS, use your own Worker, Function, local proxy, or compatible relay endpoint.
+5. Build a council lineup. New roles default to a configured model seat with an API key.
+6. Export the result as a poster, Markdown, JSON, share title, or short-video script.
+7. Keep everything local unless you manually share an exported asset.
 
 For deployment, see [docs/deployment.md](docs/deployment.md).
 For privacy and key-handling details, see [docs/security.md](docs/security.md).
 
 ## v1 Provider Scope
 
-- Mock provider for a complete no-key demo flow.
 - OpenAI-compatible Chat Completions adapter for relay, aggregator, and self-hosted compatible endpoints.
 - OpenAI Responses adapter.
 - Anthropic Messages adapter.
@@ -82,8 +80,8 @@ For privacy and key-handling details, see [docs/security.md](docs/security.md).
 ## Current v1 Shell
 
 - Chinese and English UI with browser-language auto detection and manual switching.
-- Mock debate/council flow from topic input to role lineup, staged meeting, result page, and local history.
-- Model connection screen with Mock Provider plus OpenAI-compatible, OpenAI Responses, Anthropic, Gemini, Ollama/LM Studio, and Custom JSON connection testing.
+- API-key-gated debate/council flow from topic input to role lineup, staged meeting, result page, and local history.
+- Model connection screen with OpenAI-compatible, OpenAI Responses, Anthropic, Gemini, Ollama/LM Studio, and Custom JSON connection testing.
 - Editable role prompts, model seats, and model-failure fallback policy before each session.
 - Local privacy-first result sharing through poster download, Markdown copy, JSON export, share title, and short-video script.
 - Council diversity scoring to nudge users from one model seat toward richer multi-model lineups.

@@ -39,7 +39,7 @@ npm run preview
 The v1 app does not require a backend for core features:
 
 - Model connections are configured in the browser.
-- Mock mode runs without an API key.
+- A user-provided API key is required before the council can start.
 - Conversation history is stored locally in IndexedDB.
 - Posters, Markdown, and JSON exports are generated locally.
 

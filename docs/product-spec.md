@@ -77,7 +77,8 @@ First-run setup should support one-key usage:
 - One model can power all roles through different prompts.
 - Additional models are optional upgrades.
 - OpenAI-compatible Chat Completions should be the default protocol for relay and aggregator users.
-- v1 ships a mock provider plus adapters for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, Ollama/LM Studio, and Custom JSON endpoints.
+- v1 ships adapters for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, Ollama/LM Studio, and Custom JSON endpoints.
+- A user-provided API key is required before a debate or council session can start.
 
 The internal abstraction should be:
 
@@ -105,7 +106,6 @@ Roles should bind to model connections, not directly to vendors.
 
 v1 provider scope:
 
-- **Mock provider**: powers the complete demo flow without requiring a key.
 - **OpenAI-compatible Chat Completions**: supports relay sites, OpenRouter-like aggregators, and compatible self-hosted endpoints.
 - **OpenAI Responses**: supports `/responses` endpoints for OpenAI-compatible accounts and relays.
 - **Anthropic Messages**: supports `/messages` with `x-api-key` and `anthropic-version` headers.
@@ -206,7 +206,6 @@ A single model failure should not crash the whole session.
 Fallback actions:
 
 - Retry once.
-- Substitute with default model.
 - Skip the failed role.
 - Mark the role as unavailable and continue.
 - Ask the host to summarize partial results.
@@ -215,7 +214,7 @@ Fallback actions:
 The user should be able to choose a default fallback policy:
 
 - Conservative: stop and ask me.
-- Balanced: retry, then substitute.
+- Balanced: retry, then record the failed role.
 - Fast: skip failed roles and continue.
 
 ## v1 Non-Goals

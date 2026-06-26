@@ -6,28 +6,14 @@ import type {
   CouncilSession,
   DepthPreset,
   Language,
-  ModelConnection,
 } from "../types";
 import { createId } from "./id";
-
-export function createMockConnection(): ModelConnection {
-  return {
-    id: "mock",
-    name: "Mock Provider",
-    protocol: "mock",
-    baseUrl: "local://mock",
-    model: "mock-council",
-    secretStorage: "session",
-    status: "connected",
-    statusMessage: "Ready",
-  };
-}
 
 export function generateRoles(
   mode: AppMode,
   topic: string,
   language: Language,
-  modelConnectionId = "mock"
+  modelConnectionId = ""
 ): CouncilRole[] {
   const isZh = language === "zh";
   const roleSet =

@@ -26,7 +26,6 @@ import {
   createEmptySession,
   createFailedMessage,
   createMessage,
-  createMockConnection,
   generateRoles,
 } from "../lib/council";
 import { askModel, fetchModelList, testModelConnection } from "../providers";
@@ -46,10 +45,13 @@ type AppState = {
   isRunning: boolean;
   stopRequested: boolean;
   notice?: string;
+  apiKeyModalOpen: boolean;
   fallbackPolicy: FallbackPolicy;
   sharePrivacy: SharePrivacyOptions;
   hydrate: () => Promise<void>;
   setNotice: (notice?: string) => void;
+  openApiKeyModal: () => void;
+  closeApiKeyModal: () => void;
   setLanguage: (language: Language) => void;
   setFallbackPolicy: (policy: FallbackPolicy) => void;
   navigate: (view: AppView) => void;
@@ -73,8 +75,6 @@ type AppState = {
   clearAllLocalData: () => Promise<void>;
 };
 
-const mockConnection = createMockConnection();
-
 export const useAppStore = create<AppState>((set, get) => ({
   language: detectLanguage(),
   view: "home",
@@ -83,10 +83,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   context: "",
   depth: "standard",
   roles: [],
-  connections: [mockConnection],
+  connections: [],
   sessions: [],
   isRunning: false,
   stopRequested: false,
+  apiKeyModalOpen: false,
   fallbackPolicy: "balanced",
   sharePrivacy: {
     hideQuestion: false,
@@ -106,7 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       language,
       sessions,
-      connections: mergeMockConnection(settings?.connections ?? []),
+      connections: cleanStoredConnections(settings?.connections ?? []),
       fallbackPolicy: settings?.fallbackPolicy ?? "balanced",
       ...(latestResult
         ? {
@@ -122,6 +123,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setNotice: (notice) => set({ notice }),
+  openApiKeyModal: () => set({ apiKeyModalOpen: true }),
+  closeApiKeyModal: () => set({ apiKeyModalOpen: false }),
 
   setLanguage: (language) => {
     persistLanguage(language);
@@ -140,6 +143,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   startMode: (mode, topic = "") => {
+    if (!hasUsableModelSeat(get().connections)) {
+      set({
+        mode,
+        topic,
+        context: "",
+        depth: mode === "arena" ? "quick" : "standard",
+        roles: [],
+        currentSession: undefined,
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(get().language),
+      });
+      return;
+    }
+
     set({
       mode,
       topic,
@@ -156,11 +173,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   buildLineup: () => {
     const { mode, topic, language, connections } = get();
+    const defaultConnectionId = pickDefaultModelConnectionId(connections);
+    if (!defaultConnectionId) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(language),
+      });
+      return;
+    }
+
     const roles = generateRoles(
       mode,
       topic,
       language,
-      pickDefaultModelConnectionId(connections)
+      defaultConnectionId
     );
     set({ roles, view: "lineup" });
     window.location.hash = "lineup";
@@ -168,12 +194,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   regenerateRoles: () => {
     const { mode, topic, language, connections } = get();
+    const defaultConnectionId = pickDefaultModelConnectionId(connections);
+    if (!defaultConnectionId) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(language),
+      });
+      return;
+    }
+
     set({
       roles: generateRoles(
         mode,
         topic,
         language,
-        pickDefaultModelConnectionId(connections)
+        defaultConnectionId
       ),
     });
   },
@@ -201,7 +236,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       return {
         ...role,
-        modelConnectionId: modelSeats[preferredIndex]?.id ?? "mock",
+        modelConnectionId: modelSeats[preferredIndex]?.id ?? "",
       };
     });
 
@@ -226,14 +261,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const defaultConnectionId = pickDefaultModelConnectionId(get().connections);
+    if (!defaultConnectionId) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(language),
+      });
+      return;
+    }
+
     const nextRoles = roles.length
       ? roles
       : generateRoles(
           mode,
           topic,
           language,
-          pickDefaultModelConnectionId(get().connections)
+          defaultConnectionId
         );
+    if (!rolesHaveUsableSeats(nextRoles, get().connections)) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(language),
+      });
+      return;
+    }
+
     let session = createEmptySession(mode, topic, context, depth, nextRoles);
     set({
       currentSession: session,
@@ -342,6 +394,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!connection) {
       return;
     }
+    if (!hasCallableConfiguration(connection)) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(get().language),
+      });
+      return;
+    }
 
     const result = await testModelConnection(connection);
     const connections = get().connections.map((item) =>
@@ -358,6 +417,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchModels: async (connection) => {
+    if (!hasCallableConfiguration(connection)) {
+      set({
+        apiKeyModalOpen: true,
+        notice: keyRequiredMessage(get().language),
+      });
+      return undefined;
+    }
+
     const result = await fetchModelList(connection);
     if (!result.ok) {
       set({ notice: result.message });
@@ -395,14 +462,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteConnection: async (connectionId) => {
-    if (connectionId === "mock") {
-      return;
-    }
-
     const connections = get().connections.filter((item) => item.id !== connectionId);
+    const fallbackConnectionId = pickDefaultModelConnectionId(connections) ?? "";
     const roles = get().roles.map((role) =>
       role.modelConnectionId === connectionId
-        ? { ...role, modelConnectionId: "mock" }
+        ? { ...role, modelConnectionId: fallbackConnectionId }
         : role
     );
     set({ connections, roles });
@@ -433,25 +497,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       context: "",
       depth: "standard",
       roles: [],
-      connections: [mockConnection],
+      connections: [],
       currentSession: undefined,
       sessions: [],
       fallbackPolicy: "balanced",
+      apiKeyModalOpen: false,
       notice: language === "zh" ? "所有本地数据已清空。" : "All local data was cleared.",
     });
     window.location.hash = "";
   },
 }));
 
-function mergeMockConnection(connections: ModelConnection[]) {
-  return [mockConnection, ...connections.filter((item) => item.protocol !== "mock")];
+function cleanStoredConnections(connections: ModelConnection[]) {
+  return connections.filter((item) => (item.protocol as string) !== "mock");
 }
 
 function upsertConnection(connections: ModelConnection[], connection: ModelConnection) {
-  if (connection.protocol === "mock") {
-    return connections;
-  }
-
   const exists = connections.some((item) => item.id === connection.id);
   if (exists) {
     return connections.map((item) => (item.id === connection.id ? connection : item));
@@ -461,21 +522,20 @@ function upsertConnection(connections: ModelConnection[], connection: ModelConne
 }
 
 function findConnection(connectionId: string, connections: ModelConnection[]) {
-  return (
-    connections.find((connection) => connection.id === connectionId) ??
-    connections[0] ??
-    mockConnection
-  );
+  const connection = connections.find((item) => item.id === connectionId);
+  if (!connection) {
+    throw new Error("Model connection is missing. Configure an API key before starting.");
+  }
+  return connection;
 }
 
 function pickDefaultModelConnectionId(connections: ModelConnection[]) {
-  return usableModelSeats(connections)[0]?.id ?? "mock";
+  return usableModelSeats(connections)[0]?.id;
 }
 
 function usableModelSeats(connections: ModelConnection[]) {
-  const realSeats = connections.filter((connection) => connection.protocol !== "mock");
-  const connectedSeats = realSeats.filter((connection) => connection.status === "connected");
-  const configuredSeats = realSeats.filter(hasCallableConfiguration);
+  const configuredSeats = connections.filter(hasCallableConfiguration);
+  const connectedSeats = configuredSeats.filter((connection) => connection.status === "connected");
 
   return [...connectedSeats, ...configuredSeats].filter(
     (connection, index, seats) =>
@@ -485,12 +545,22 @@ function usableModelSeats(connections: ModelConnection[]) {
 }
 
 function hasCallableConfiguration(connection: ModelConnection) {
-  return (
-    Boolean(connection.apiKey?.trim()) ||
-    Boolean(connection.customHeaders && Object.keys(connection.customHeaders).length > 0) ||
-    connection.protocol === "ollama" ||
-    (connection.protocol === "custom" && !isPlaceholderEndpoint(connection.baseUrl))
-  );
+  return Boolean(connection.apiKey?.trim());
+}
+
+function hasUsableModelSeat(connections: ModelConnection[]) {
+  return usableModelSeats(connections).length > 0;
+}
+
+function rolesHaveUsableSeats(roles: CouncilRole[], connections: ModelConnection[]) {
+  const usableIds = new Set(usableModelSeats(connections).map((connection) => connection.id));
+  return roles.length > 0 && roles.every((role) => usableIds.has(role.modelConnectionId));
+}
+
+function keyRequiredMessage(language: Language) {
+  return language === "zh"
+    ? "请先配置 API Key，才能开始使用 AI Council。"
+    : "Configure an API key before using AI Council.";
 }
 
 function isUnconfiguredDefaultConnection(connection: ModelConnection) {
@@ -541,34 +611,6 @@ async function handleModelFailure(
       session,
       createFailedMessage(role, stage, language === "zh" ? `已暂停：${message}` : `Paused: ${message}`)
     );
-  }
-
-  if (fallbackPolicy === "balanced") {
-    try {
-      const response = await askModel({
-        connection: mockConnection,
-        role,
-        mode: session.mode,
-        topic: session.topic,
-        context: session.context,
-        stage,
-        language,
-        previousMessages: session.messages,
-        maxOutputTokens: 420,
-      });
-      return appendMessage(
-        session,
-        createMessage(
-          role,
-          stage,
-          language === "zh"
-            ? `${response.content}\n\n（原模型失败，已由 Mock Provider 代打。）`
-            : `${response.content}\n\n(The assigned model failed, so Mock Provider substituted.)`
-        )
-      );
-    } catch {
-      // Fall through to failed message.
-    }
   }
 
   return appendMessage(

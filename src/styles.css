@@ -464,6 +464,25 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.48) inset;
 }
 
+.connection-empty {
+  @apply grid gap-3 p-5;
+  min-height: 220px;
+  align-content: center;
+  border: 1px dashed rgba(246, 200, 95, 0.38);
+  border-radius: 8px;
+  color: #fffaf2;
+  background: rgba(12, 2, 18, 0.72);
+}
+
+.connection-empty h2 {
+  @apply text-2xl font-black leading-tight;
+}
+
+.connection-empty p {
+  @apply max-w-xl text-sm leading-6;
+  color: rgba(255, 250, 242, 0.72);
+}
+
 .connection-card-header {
   @apply flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
   min-width: 0;
@@ -500,12 +519,6 @@ body {
 .connection-status.failed {
   color: #7e123d;
   background: rgba(255, 67, 127, 0.16);
-}
-
-.mock-connection-panel {
-  @apply flex items-center gap-3 rounded-md px-4 py-4 text-sm font-semibold;
-  border: 1px solid rgba(18, 16, 20, 0.08);
-  background: rgba(18, 16, 20, 0.04);
 }
 
 .provider-dock {
@@ -554,21 +567,25 @@ body {
   @apply md:col-span-2;
 }
 
-.connection-card .field-label {
+.connection-card .field-label,
+.api-key-modal .field-label {
   color: rgba(18, 16, 20, 0.7);
 }
 
-.connection-card .text-input {
+.connection-card .text-input,
+.api-key-modal .text-input {
   border-color: rgba(18, 16, 20, 0.12);
   color: #121014;
   background: rgba(255, 255, 255, 0.82);
 }
 
-.connection-card .text-input::placeholder {
+.connection-card .text-input::placeholder,
+.api-key-modal .text-input::placeholder {
   color: rgba(18, 16, 20, 0.32);
 }
 
-.connection-card .text-input:focus {
+.connection-card .text-input:focus,
+.api-key-modal .text-input:focus {
   border-color: rgba(126, 89, 18, 0.5);
   box-shadow:
     0 0 0 3px rgba(246, 200, 95, 0.18),
@@ -610,6 +627,36 @@ body {
 
 .connection-actions {
   @apply grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap;
+}
+
+.modal-scrim {
+  @apply fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4;
+  background:
+    linear-gradient(180deg, rgba(5, 1, 8, 0.68), rgba(5, 1, 8, 0.9)),
+    rgba(5, 1, 8, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.api-key-modal {
+  @apply grid w-full max-w-3xl gap-4 p-4 sm:p-5;
+  border-radius: 8px;
+  color: #121014;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(238, 233, 222, 0.95)),
+    #fffaf2;
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(255, 255, 255, 0.54) inset,
+    0 0 60px rgba(185, 67, 255, 0.22);
+}
+
+.api-key-modal h2 {
+  @apply mt-1 text-3xl font-black leading-none;
+}
+
+.api-key-modal .connection-card-header p:not(.connection-eyebrow) {
+  @apply mt-2 text-sm leading-6;
+  color: rgba(18, 16, 20, 0.62);
 }
 
 .connection-card .secondary-button {

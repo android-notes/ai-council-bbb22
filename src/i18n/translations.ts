@@ -78,6 +78,12 @@ export type TranslationKey =
   | "connections.model"
   | "connections.headers"
   | "connections.headersHelp"
+  | "connections.keyRequired"
+  | "connections.requiredTitle"
+  | "connections.requiredBody"
+  | "connections.closeSetup"
+  | "connections.emptyTitle"
+  | "connections.emptyBody"
   | "connections.unsupported"
   | "connections.headersInvalid"
   | "connections.presets"
@@ -92,7 +98,6 @@ export type TranslationKey =
   | "connections.customJsonPreset"
   | "connections.corsHint"
   | "connections.storeKey"
-  | "connections.mockReady"
   | "connections.modelsLoaded"
   | "privacy.localData"
   | "privacy.clearAll"
@@ -149,9 +154,9 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "lineup.addModel": "Add model seat",
     "lineup.autoAssign": "Auto-optimize lineup",
     "lineup.optimized": "Model seats optimized.",
-    "lineup.noExtraModels": "Add one more model connection before optimizing the lineup.",
+    "lineup.noExtraModels": "Add an API key before optimizing the lineup.",
     "lineup.failurePolicy": "Model failure policy",
-    "lineup.failurePolicyHint": "Balanced retries once, then substitutes Mock. Conservative stops later roles. Fast skips failed roles.",
+    "lineup.failurePolicyHint": "Balanced retries once, then records the failed role. Conservative stops later roles. Fast skips failed roles.",
     "lineup.fallbackBalanced": "Balanced",
     "lineup.fallbackConservative": "Conservative",
     "lineup.fallbackFast": "Fast",
@@ -185,7 +190,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "result.exported": "Export file created.",
     "connections.title": "Model connections",
     "connections.subtitle":
-      "Start with the mock provider or one key. Add more protocols only when sharper model disagreement is worth it.",
+      "Configure at least one API key before starting. Add more providers when sharper model disagreement is worth it.",
     "connections.add": "Add connection",
     "connections.test": "Test connection",
     "connections.fetchModels": "Fetch models",
@@ -198,6 +203,12 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.model": "Model ID",
     "connections.headers": "Custom headers",
     "connections.headersHelp": "Optional JSON object. Secrets are only saved when device storage is enabled.",
+    "connections.keyRequired": "Add an API key before starting.",
+    "connections.requiredTitle": "API key required",
+    "connections.requiredBody": "AI Council now runs only with real model connections. Configure one provider key to continue.",
+    "connections.closeSetup": "Close",
+    "connections.emptyTitle": "No model key yet",
+    "connections.emptyBody": "Add a provider connection with your own API key. Without a key, the council cannot start.",
     "connections.unsupported": "Available",
     "connections.headersInvalid": "Custom headers must be a valid JSON object.",
     "connections.presets": "Quick presets",
@@ -213,7 +224,6 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.corsHint":
       "If the browser blocks CORS, use your own Worker, Function, local proxy, or relay endpoint. Local Ollama may need OLLAMA_ORIGINS.",
     "connections.storeKey": "Save key on this device",
-    "connections.mockReady": "Mock provider is ready and does not need a key.",
     "connections.modelsLoaded": "Models loaded.",
     "privacy.localData": "Local data",
     "privacy.clearAll": "Clear all local data",
@@ -269,9 +279,9 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "lineup.addModel": "添加模型席位",
     "lineup.autoAssign": "自动优化阵容",
     "lineup.optimized": "模型席位已优化。",
-    "lineup.noExtraModels": "先添加至少一个额外模型连接，再优化阵容。",
+    "lineup.noExtraModels": "先配置 API Key，再优化阵容。",
     "lineup.failurePolicy": "模型失败策略",
-    "lineup.failurePolicyHint": "平衡模式会先重试一次，再用 Mock 代打；保守模式停止后续角色；快速模式跳过失败角色。",
+    "lineup.failurePolicyHint": "平衡模式会先重试一次，再记录失败角色；保守模式停止后续角色；快速模式跳过失败角色。",
     "lineup.fallbackBalanced": "平衡",
     "lineup.fallbackConservative": "保守",
     "lineup.fallbackFast": "快速",
@@ -305,7 +315,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "result.exported": "导出文件已生成。",
     "connections.title": "模型连接",
     "connections.subtitle":
-      "先用 Mock Provider 或一个 Key 起步。等需要更尖锐的模型分歧时，再逐步添加更多协议。",
+      "开始前至少配置一个 API Key。需要更尖锐的模型分歧时，再逐步添加更多供应商。",
     "connections.add": "添加连接",
     "connections.test": "测试连接",
     "connections.fetchModels": "获取模型",
@@ -318,6 +328,12 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.model": "模型 ID",
     "connections.headers": "自定义 Headers",
     "connections.headersHelp": "可选 JSON 对象。只有开启本设备保存时，密钥类字段才会持久保存。",
+    "connections.keyRequired": "请先配置 API Key，再开始使用。",
+    "connections.requiredTitle": "需要配置 API Key",
+    "connections.requiredBody": "AI Council 现在只使用真实模型连接。请先配置一个供应商 Key，才能继续。",
+    "connections.closeSetup": "关闭",
+    "connections.emptyTitle": "还没有模型 Key",
+    "connections.emptyBody": "添加一个带自己 API Key 的供应商连接。没有 Key 时，智囊团不能开始。",
     "connections.unsupported": "已支持",
     "connections.headersInvalid": "自定义 Headers 必须是合法 JSON 对象。",
     "connections.presets": "快速预设",
@@ -333,7 +349,6 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     "connections.corsHint":
       "如果浏览器被 CORS 拦截，请使用自己的 Worker、Function、本地代理或中转端点。本地 Ollama 可能需要配置 OLLAMA_ORIGINS。",
     "connections.storeKey": "在本设备保存 Key",
-    "connections.mockReady": "Mock Provider 已可用，不需要 Key。",
     "connections.modelsLoaded": "模型列表已获取。",
     "privacy.localData": "本地数据",
     "privacy.clearAll": "清空所有本地数据",

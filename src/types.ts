@@ -23,7 +23,6 @@ export type SessionStage =
   | "summary";
 
 export type ModelProtocol =
-  | "mock"
   | "openai-chat-completions"
   | "openai-responses"
   | "anthropic-messages"
