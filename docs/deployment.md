@@ -45,6 +45,51 @@ The v1 app does not require a backend for core features:
 
 For real model calls, users should provide their own API key, local model endpoint, relay, or self-hosted proxy.
 
+## One-Click Relay Deploy
+
+Deploy a personal relay when a provider or aggregator blocks browser CORS. The relay forwards requests only to the fixed provider allowlist and still requires each user to configure their own API key in the browser.
+
+| Platform | Best For | One-Click Deploy |
+| --- | --- | --- |
+| Vercel | Lowest setup friction | [Deploy to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fandroid-notes%2Fai-council&project-name=ai-council&repository-name=ai-council&demo-title=AI%20Council&demo-url=https%3A%2F%2Fandroid-notes.github.io%2Fai-council%2F) |
+| Netlify | Hard free-plan limits and simple GitHub import | [Deploy to Netlify](https://app.netlify.com/start/deploy?repository=https%3A%2F%2Fgithub.com%2Fandroid-notes%2Fai-council) |
+| Cloudflare | Higher free request volume and edge runtime | [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Fandroid-notes%2Fai-council) |
+
+After deployment, use these Base URL patterns in AI Council:
+
+### Vercel / Netlify
+
+```text
+https://your-project.vercel.app/api/openai/v1
+https://your-project.vercel.app/api/deepseek
+https://your-project.vercel.app/api/anthropic/v1
+https://your-project.vercel.app/api/gemini/v1beta
+https://your-project.vercel.app/api/openrouter/api/v1
+```
+
+Netlify uses the same `/api/...` paths:
+
+```text
+https://your-site.netlify.app/api/openai/v1
+```
+
+Health check:
+
+```text
+https://your-project.vercel.app/api/health
+https://your-site.netlify.app/api/health
+```
+
+### Cloudflare
+
+```text
+https://your-worker.workers.dev/openai/v1
+https://your-worker.workers.dev/deepseek
+https://your-worker.workers.dev/anthropic/v1
+https://your-worker.workers.dev/gemini/v1beta
+https://your-worker.workers.dev/openrouter/api/v1
+```
+
 ## Cloudflare Worker Relay
 
 The repository includes a restricted Cloudflare Worker relay for users who need a browser CORS bridge.
