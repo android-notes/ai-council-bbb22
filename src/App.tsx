@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bot,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import clsx from "clsx";
@@ -94,7 +96,7 @@ export function App() {
 
     const timer = window.setTimeout(() => {
       useAppStore.getState().setNotice(undefined);
-    }, 3600);
+    }, 12_000);
 
     return () => window.clearTimeout(timer);
   }, [notice]);
@@ -103,7 +105,6 @@ export function App() {
     <div className="app-shell min-h-screen">
       <div className="app-frame mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         <Header />
-        {notice ? <div className="notice-bar">{notice}</div> : null}
         <main className="flex-1 py-5">
           {view === "home" && <HomeView />}
           {view === "brief" && <BriefView />}
@@ -119,8 +120,79 @@ export function App() {
           <span>{t("common.localOnly")}</span>
         </footer>
       </div>
+      {notice ? <NoticeDialog language={language} message={notice} /> : null}
     </div>
   );
+}
+
+function NoticeDialog({
+  language,
+  message,
+}: {
+  language: "en" | "zh";
+  message: string;
+}) {
+  const setNotice = useAppStore((state) => state.setNotice);
+  const tone = noticeTone(message);
+  const title =
+    language === "zh"
+      ? tone === "success"
+        ? "操作已完成"
+        : tone === "error"
+          ? "需要处理"
+          : "提示"
+      : tone === "success"
+        ? "Done"
+        : tone === "error"
+          ? "Action needed"
+          : "Notice";
+
+  return (
+    <div className="notice-dialog-layer" role="presentation">
+      <section
+        aria-live="assertive"
+        aria-modal="false"
+        className={clsx("notice-dialog", tone)}
+        role="alertdialog"
+      >
+        <div className="notice-dialog-icon">
+          {tone === "success" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
+        </div>
+        <div className="notice-dialog-body">
+          <h2>{title}</h2>
+          <p>{message}</p>
+        </div>
+        <button
+          aria-label={language === "zh" ? "关闭提示" : "Close notice"}
+          className="notice-dialog-close"
+          onClick={() => setNotice(undefined)}
+        >
+          <X size={18} />
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function noticeTone(message: string) {
+  const normalized = message.toLowerCase();
+  if (
+    /失败|错误|无效|超时|拦截|不能|请先|blocked|cors|failed|failure|error|invalid|timed out|missing|required/.test(
+      normalized
+    )
+  ) {
+    return "error";
+  }
+
+  if (
+    /成功|完成|已保存|已复制|已生成|已获取|succeeded|success|saved|copied|exported|loaded|done|ok/.test(
+      normalized
+    )
+  ) {
+    return "success";
+  }
+
+  return "neutral";
 }
 
 function Header() {

@@ -214,12 +214,78 @@ body {
   background: rgba(82, 0, 30, 0.5);
 }
 
-.notice-bar {
-  @apply mt-4 rounded-md px-4 py-3 text-sm font-medium;
-  border: 1px solid rgba(246, 200, 95, 0.58);
-  color: #fff1bd;
-  background: rgba(56, 34, 6, 0.64);
-  box-shadow: 0 0 26px rgba(246, 200, 95, 0.16);
+.notice-dialog-layer {
+  @apply pointer-events-none fixed inset-0 z-[70] grid place-items-center p-4;
+}
+
+.notice-dialog {
+  @apply pointer-events-auto grid w-full max-w-xl grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 p-4;
+  border-radius: 8px;
+  border: 1px solid rgba(246, 200, 95, 0.52);
+  color: #fff8e8;
+  background:
+    linear-gradient(135deg, rgba(27, 7, 42, 0.96), rgba(5, 1, 8, 0.94)),
+    #050108;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 0 54px rgba(185, 67, 255, 0.28),
+    0 0 42px rgba(246, 200, 95, 0.18);
+}
+
+.notice-dialog.success {
+  border-color: rgba(99, 238, 167, 0.52);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.56),
+    0 0 46px rgba(41, 255, 164, 0.2);
+}
+
+.notice-dialog.error {
+  border-color: rgba(255, 67, 127, 0.64);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.62),
+    0 0 46px rgba(255, 67, 127, 0.28);
+}
+
+.notice-dialog-icon {
+  @apply grid h-10 w-10 place-items-center rounded-full;
+  color: #0d0714;
+  background: linear-gradient(135deg, #f6c85f, #ffe3a0);
+}
+
+.notice-dialog.success .notice-dialog-icon {
+  background: linear-gradient(135deg, #63eea7, #d7ffe9);
+}
+
+.notice-dialog.error .notice-dialog-icon {
+  background: linear-gradient(135deg, #ff437f, #ffd0df);
+}
+
+.notice-dialog-body {
+  @apply min-w-0;
+}
+
+.notice-dialog-body h2 {
+  @apply text-base font-black;
+  color: #fffaf2;
+}
+
+.notice-dialog-body p {
+  @apply mt-1 max-h-56 overflow-y-auto text-sm font-semibold leading-6;
+  color: rgba(255, 248, 232, 0.82);
+}
+
+.notice-dialog-close {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-full transition;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 248, 232, 0.78);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.notice-dialog-close:hover {
+  color: #fffaf2;
+  border-color: rgba(246, 200, 95, 0.44);
+  background: rgba(246, 200, 95, 0.14);
 }
 
 .section-kicker {
