@@ -17,6 +17,7 @@ import {
   extractErrorMessage,
   extractModelIds,
   extractTextFromUnknown,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
@@ -27,7 +28,7 @@ export async function askOllama(request: ModelRequest): Promise<ModelResponse> {
     return askOpenAiCompatible(request);
   }
 
-  const response = await fetch(buildOllamaChatEndpoint(request.connection.baseUrl), {
+  const response = await fetchWithTimeout(buildOllamaChatEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify({
@@ -71,7 +72,7 @@ export async function testOllamaConnection(connection: ModelConnection): Promise
   const startedAt = performance.now();
 
   try {
-    const response = await fetch(buildOllamaChatEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildOllamaChatEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
@@ -136,7 +137,7 @@ export async function fetchOllamaModels(connection: ModelConnection): Promise<Mo
   }
 
   try {
-    const response = await fetch(buildOllamaTagsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildOllamaTagsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });

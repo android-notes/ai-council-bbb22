@@ -11,13 +11,14 @@ import {
   extractErrorMessage,
   extractModelIds,
   extractTextFromUnknown,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
 export async function askAnthropicMessages(request: ModelRequest): Promise<ModelResponse> {
-  const response = await fetch(buildMessagesEndpoint(request.connection.baseUrl), {
+  const response = await fetchWithTimeout(buildMessagesEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildAnthropicHeaders(request.connection),
     body: JSON.stringify({
@@ -54,7 +55,7 @@ export async function testAnthropicMessagesConnection(
   const startedAt = performance.now();
 
   try {
-    const response = await fetch(buildMessagesEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildMessagesEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildAnthropicHeaders(connection),
       body: JSON.stringify({
@@ -115,7 +116,7 @@ export async function fetchAnthropicModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildAnthropicHeaders(connection),
     });

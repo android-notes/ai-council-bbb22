@@ -1,6 +1,8 @@
 import type { ModelConnection } from "../types";
 import type { ModelRequest } from "./types";
 
+const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
+
 export async function safeJson(response: Response) {
   try {
     return await response.json();
@@ -27,6 +29,33 @@ export function extractErrorMessage(json: unknown, status: number) {
 
 export function networkErrorMessage(scope = "request") {
   return `Network or CORS blocked the ${scope}.`;
+}
+
+export function timeoutErrorMessage(scope = "request", timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
+  return `The ${scope} timed out after ${Math.round(timeoutMs / 1000)} seconds.`;
+}
+
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
+) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutErrorMessage("request", timeoutMs), { cause: error });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export function trimBaseUrl(baseUrl: string) {

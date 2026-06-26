@@ -41,6 +41,8 @@ type ActionFeedback = {
   message: string;
 };
 
+const CONNECTION_ACTION_TIMEOUT_MS = 20_000;
+
 const suggestedQuestions = {
   en: [
     "Should we launch this product as open source?",
@@ -846,6 +848,22 @@ function ApiKeyModal() {
     setNotice(message);
   }
 
+  function actionTimeoutMessage(action: ConnectionAction) {
+    if (language === "zh") {
+      return {
+        fetch: "获取模型超时。请检查 Base URL、协议、CORS 或中转服务状态。",
+        test: "测试连接超时。请检查 Base URL、协议、CORS 或中转服务状态。",
+        save: "保存连接超时，请重试。",
+      }[action];
+    }
+
+    return {
+      fetch: "Loading models timed out. Check the Base URL, protocol, CORS, or relay status.",
+      test: "Connection test timed out. Check the Base URL, protocol, CORS, or relay status.",
+      save: "Saving the connection timed out. Try again.",
+    }[action];
+  }
+
   function buildDraftFromForm() {
     if (!draft.apiKey?.trim()) {
       feedbackMessage("error", t("connections.keyRequired"));
@@ -902,7 +920,11 @@ function ApiKeyModal() {
     setActionFeedback({ tone: "neutral", message: actionLabel("fetch") });
     try {
       await saveConnection(nextDraft);
-      const updatedConnection = await fetchModels(nextDraft);
+      const updatedConnection = await withTimeout(
+        fetchModels(nextDraft),
+        CONNECTION_ACTION_TIMEOUT_MS,
+        actionTimeoutMessage("fetch")
+      );
       if (updatedConnection) {
         setDraft(updatedConnection);
         setHeadersText(
@@ -939,7 +961,11 @@ function ApiKeyModal() {
     setActionFeedback({ tone: "neutral", message: actionLabel("test") });
     try {
       await saveConnection(nextDraft);
-      await testConnection(nextDraft.id);
+      await withTimeout(
+        testConnection(nextDraft.id),
+        CONNECTION_ACTION_TIMEOUT_MS,
+        actionTimeoutMessage("test")
+      );
       const testedConnection = useAppStore
         .getState()
         .connections.find((connection) => connection.id === nextDraft.id);
@@ -1766,6 +1792,23 @@ function statusText(
   if (status === "connected") return t("common.connected");
   if (status === "failed") return t("common.failed");
   return t("common.untested");
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
 }
 
 async function copyToClipboard(text: string) {

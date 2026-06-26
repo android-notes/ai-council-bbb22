@@ -11,6 +11,7 @@ import {
   buildUserPrompt,
   extractErrorMessage,
   extractModelIds,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
@@ -20,7 +21,7 @@ export async function askOpenAiCompatible(
   request: ModelRequest
 ): Promise<ModelResponse> {
   const endpoint = buildChatCompletionsEndpoint(request.connection.baseUrl);
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify({
@@ -61,7 +62,7 @@ export async function testOpenAiCompatibleConnection(
 
   try {
     const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
@@ -127,7 +128,7 @@ export async function fetchOpenAiCompatibleModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });
@@ -167,7 +168,7 @@ export async function fetchOpenAiCompatibleModels(
 async function probeStreaming(connection: ModelConnection) {
   try {
     const endpoint = buildChatCompletionsEndpoint(connection.baseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
@@ -189,12 +190,37 @@ async function probeStreaming(connection: ModelConnection) {
     }
 
     const reader = response.body.getReader();
-    const chunk = await reader.read();
-    await reader.cancel();
-    return Boolean(chunk.value);
+    try {
+      const chunk = await readStreamChunkWithTimeout(reader, 5_000);
+      return Boolean(chunk.value);
+    } finally {
+      await reader.cancel();
+    }
   } catch {
     return false;
   }
+}
+
+function readStreamChunkWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number
+) {
+  return new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("Streaming probe timed out."));
+    }, timeoutMs);
+
+    reader.read().then(
+      (chunk) => {
+        window.clearTimeout(timeoutId);
+        resolve(chunk);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
 }
 
 function buildChatCompletionsEndpoint(baseUrl: string) {

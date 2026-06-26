@@ -12,13 +12,14 @@ import {
   extractErrorMessage,
   extractModelIds,
   extractTextFromUnknown,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
 export async function askOpenAiResponses(request: ModelRequest): Promise<ModelResponse> {
-  const response = await fetch(buildResponsesEndpoint(request.connection.baseUrl), {
+  const response = await fetchWithTimeout(buildResponsesEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify({
@@ -50,7 +51,7 @@ export async function testOpenAiResponsesConnection(
   const startedAt = performance.now();
 
   try {
-    const response = await fetch(buildResponsesEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildResponsesEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify({
@@ -106,7 +107,7 @@ export async function fetchOpenAiResponsesModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildResponsesModelsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildResponsesModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });

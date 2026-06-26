@@ -12,6 +12,7 @@ import {
   extractErrorMessage,
   extractModelIds,
   extractTextFromUnknown,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
@@ -25,7 +26,7 @@ export async function askCustomJson(request: ModelRequest): Promise<ModelRespons
     request.mode === "review" ? 0.85 : 0.45,
     request.maxOutputTokens
   );
-  const response = await fetch(buildCustomEndpoint(request.connection.baseUrl), {
+  const response = await fetchWithTimeout(buildCustomEndpoint(request.connection.baseUrl), {
     method: "POST",
     headers: buildBearerHeaders(request.connection),
     body: JSON.stringify(payload),
@@ -50,7 +51,7 @@ export async function testCustomJsonConnection(
   const startedAt = performance.now();
 
   try {
-    const response = await fetch(buildCustomEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildCustomEndpoint(connection.baseUrl), {
       method: "POST",
       headers: buildBearerHeaders(connection),
       body: JSON.stringify(
@@ -108,7 +109,7 @@ export async function fetchCustomJsonModels(
   connection: ModelConnection
 ): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildCustomModelsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildCustomModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildBearerHeaders(connection),
     });

@@ -9,13 +9,14 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   extractErrorMessage,
+  fetchWithTimeout,
   networkErrorMessage,
   safeJson,
   trimBaseUrl,
 } from "./shared";
 
 export async function askGemini(request: ModelRequest): Promise<ModelResponse> {
-  const response = await fetch(buildGenerateContentEndpoint(request.connection), {
+  const response = await fetchWithTimeout(buildGenerateContentEndpoint(request.connection), {
     method: "POST",
     headers: buildGeminiHeaders(request.connection),
     body: JSON.stringify({
@@ -52,7 +53,7 @@ export async function testGeminiConnection(connection: ModelConnection): Promise
   const startedAt = performance.now();
 
   try {
-    const response = await fetch(buildGenerateContentEndpoint(connection), {
+    const response = await fetchWithTimeout(buildGenerateContentEndpoint(connection), {
       method: "POST",
       headers: buildGeminiHeaders(connection),
       body: JSON.stringify({
@@ -111,7 +112,7 @@ export async function testGeminiConnection(connection: ModelConnection): Promise
 
 export async function fetchGeminiModels(connection: ModelConnection): Promise<ModelListResult> {
   try {
-    const response = await fetch(buildModelsEndpoint(connection.baseUrl), {
+    const response = await fetchWithTimeout(buildModelsEndpoint(connection.baseUrl), {
       method: "GET",
       headers: buildGeminiHeaders(connection),
     });
