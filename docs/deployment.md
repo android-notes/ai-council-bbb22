@@ -64,6 +64,20 @@ npx wrangler login
 npm run deploy:worker
 ```
 
+### GitHub One-Click Deploy
+
+For maintainers, local Cloudflare login is optional. Configure GitHub once, then deploy from the Actions page:
+
+1. In Cloudflare, create an API token with Workers deploy permission.
+2. Copy your Cloudflare account ID.
+3. In GitHub, open **Settings -> Secrets and variables -> Actions**.
+4. Add these repository secrets:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+5. Open **Actions -> Deploy Cloudflare Worker -> Run workflow**.
+
+The workflow validates the frontend, validates the Worker bundle with `wrangler deploy --dry-run`, and then deploys `ai-council-relay`.
+
 Optional production hardening:
 
 ```bash

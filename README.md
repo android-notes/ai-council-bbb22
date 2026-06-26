@@ -46,6 +46,8 @@ npm run build
 
 Before publishing, confirm GitHub Pages is set to **GitHub Actions** in the repository settings.
 
+Cloudflare Worker relay deployment can be run from GitHub after adding `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets. See [docs/deployment.md](docs/deployment.md).
+
 ## Usage
 
 1. Open the app.
